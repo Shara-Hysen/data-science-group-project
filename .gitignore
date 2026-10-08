@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Data- och modellfiler (hindra tunga artefakter från att pushas till git)
+data/
+*.csv
+*.parquet
+*.pkl
+*.joblib
+
+# Mappar för exporterade diagram/modeller (behåll mapparna via .gitkeep om ni vill, men ignorera innehållet)
+outputs/*
+!outputs/.gitkeep
+
+# Lokala operativsystemfiler
+.DS_Store
+Thumbs.db
