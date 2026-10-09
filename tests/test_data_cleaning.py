@@ -21,17 +21,19 @@ def sample_raw_data() -> pd.DataFrame:
     """Skapar en liten representativ DataFrame för testning."""
     return pd.DataFrame(
         {
-            "adults": [2, 0, 1, 1],
-            "children": [1.0, 0.0, None, 0.0],
-            "babies": [0, 0, 0, 0],
-            "country": ["PRT", None, "FRA", "DEU"],
-            "agent": [9.0, None, 1.0, 0.0],
-            "company": [None, None, 40.0, 0.0],
-            "adr": [100.0, 50.0, -5.0, 6000.0],
-            "lead_time": [30, 10, 5, 20],
-            "arrival_date_year": [2016, 2015, 2016, 2015],
-            "arrival_date_month": ["July", "August", "May", "January"],
-            "arrival_date_day_of_month": [15, 1, 10, 5]
+            "adults": [2, 0, 1, 1, 2],
+            "children": [1.0, 0.0, None, 0.0, 0.0],
+            "babies": [0, 0, 0, 0, 0],
+            "country": ["PRT", None, "FRA", "DEU", "PRT"],
+            "market_segment": ["Online TA", "Online TA", "Online TA", "Online TA", "Undefined"],
+            "distribution_channel": ["TA/TO", "TA/TO", "TA/TO", "TA/TO", "Direct"],
+            "agent": [9.0, None, 1.0, 0.0, 1.0],
+            "company": [None, None, 40.0, 0.0, None],
+            "adr": [100.0, 50.0, -5.0, 6000.0, 80.0],
+            "lead_time": [30, 10, 5, 20, 10],
+            "arrival_date_year": [2016, 2015, 2016, 2015, 2016],
+            "arrival_date_month": ["July", "August", "May", "January", "May"],
+            "arrival_date_day_of_month": [15, 1, 10, 5, 12]
         }
     )
 
@@ -49,13 +51,15 @@ def test_handle_missing_values(sample_raw_data: pd.DataFrame) -> None:
 
 
 def test_filter_invalid_rows(sample_raw_data: pd.DataFrame) -> None:
-    """Verifierar att rader med 0 gäster och orimliga adr-värden rensas bort."""
+    """Verifierar att rader med 0 gäster, orimliga adr-värden och Undefined rensas bort."""
     cleaned = filter_invalid_rows(sample_raw_data)
 
     # Rad 1 (0 gäster), rad 2 (adr < 0) och rad 3 (adr > 5000) ska tas bort 
     assert len(cleaned) == 1
     assert cleaned.iloc[0]["adults"] == 2
     assert cleaned.iloc[0]["adr"] == 100.0
+    assert (cleaned["market_segment"] != "Undefined").all()
+    assert (cleaned["distribution_channel"] != "Undefined").all()
 
 
 def test_derive_dates(sample_raw_data: pd.DataFrame) -> None:
@@ -95,6 +99,8 @@ def test_cleaned_data_schema_valid() -> None:
             "children": [0.0],
             "babies": [0],
             "country": ["PRT"],
+            "market_segment": ["Online TA"],
+            "distribution_channel": ["TA/TO"],
             "agent": [1.0],
             "company": [0.0],
             "adr": [120.5],
@@ -114,6 +120,8 @@ def test_cleaned_data_schema_catches_zero_guests() -> None:
             "children": [0.0],
             "babies": [0],
             "country": ["PRT"],
+            "market_segment": ["Online TA"],
+            "distribution_channel": ["TA/TO"],
             "agent": [1.0],
             "company": [0.0],
             "adr": [120.5],
@@ -123,3 +131,24 @@ def test_cleaned_data_schema_catches_zero_guests() -> None:
     )
     with pytest.raises(pa.errors.SchemaError):
         cleaned_data_schema.validate(invalid_df)
+
+
+def test_cleaned_data_schema_catches_undefined() -> None:
+    """Verifierar att Schemat fångar upp och kastar fel om 'Undefined' finns kvar."""
+    invalid_df = pd.DataFrame(
+        {
+            "adults": [2],
+            "children": [0.0],
+            "babies": [0],
+            "country": ["PRT"],
+            "market_segment": ["Undefined"],
+            "distribution_channel": ["TA/TO"],
+            "agent": [1.0],
+            "company": [0.0],
+            "adr": [120.5],
+            "arrival_date": [pd.Timestamp("2016-08-10")],
+            "booking_date": [pd.Timestamp("2016-08-01")]
+        }
+    )
+    with pytest.raises(pa.errors.SchemaErrors):
+        cleaned_data_schema.validate(invalid_df, lazy=True)

@@ -32,6 +32,16 @@ cleaned_data_schema = pa.DataFrameSchema(
         "agent": pa.Column(float, nullable=False),
         "company": pa.Column(float, nullable=False),
         "adr": pa.Column(float, checks=[pa.Check.ge(0), pa.Check.lt(5000)], nullable=False),
+        "market_segment": pa.Column(
+            str,
+            checks=pa.Check.ne("Undefined", error="market_segment innehåller 'Undefined'"),
+            nullable=False
+        ),
+        "distribution_channel": pa.Column(
+            str,
+            checks=pa.Check.ne("Undefined", error="distribution_channel innehåller 'Undefined'"),
+            nullable=False
+        ),
         "arrival_date": pa.Column(pa.DateTime, nullable=False),
         "booking_date": pa.Column(
             pa.DateTime,
@@ -74,14 +84,17 @@ def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def filter_invalid_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Tar bort rader med 0 gäster samt orimliga dagspriser."""
+    """Tar bort rader med 0 gäster, orimliga dagspriser samt Undefined i segment/kanal."""
     logger.info("Filtrerar bort orimliga rader...")
     initial_rows = len(df)
 
     has_guests = (df["adults"] + df["children"].fillna(0.0) + df["babies"]) > 0
     valid_adr = (df["adr"] >= 0.0) & (df["adr"] < 5000.0)
 
-    filtered_df = df[has_guests & valid_adr].copy()
+    valid_segment = ~df["market_segment"].isin(["Undefined"]) if "market_segment" in df.columns else True
+    valid_channel = ~df["distribution_channel"].isin(["Undefined"]) if "distribution_channel" in df.columns else True
+
+    filtered_df = df[has_guests & valid_adr & valid_segment & valid_channel].copy()
     removed = initial_rows - len(filtered_df)
     logger.info("Tog bort %d rader. Kvarvarande: %d.", removed, len(filtered_df))
 
