@@ -22,7 +22,7 @@
 - Skapar `arrival_date` och härleder `booking_date` utifrån `arrival_date` och `lead_time`.
 - Filtrerar bort bokningar gjorda före 2015-07-01. Observationer före detta datum är ofullständiga (endast långa ledtider finns representerade) och innehåller skeva blockbokningar från 2014.
 
-### Preprocessing
+### Preprocessing (`preprocessing.py`)
 
 **De features som bedöms vara kända vid bokningstillfället och som kan användas för att träna modellen är:**
 
