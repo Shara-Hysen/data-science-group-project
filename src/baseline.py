@@ -51,10 +51,7 @@ def predict_baseline(
     predictions = np.zeros(len(df), dtype=int)
 
     # Hitta radpositionerna för bokningarna med längst lead_time.
-    top_positions = np.argsort(
-        -df["lead_time"].to_numpy(),
-        kind="stable"
-    )[:n_flagged]
+    top_positions = df["lead_time"].reset_index(drop=True).nlargest(n_flagged).index
 
     # Markera de utvalda bokningarna med 1.
     predictions[top_positions] = 1
