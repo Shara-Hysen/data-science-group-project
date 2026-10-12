@@ -13,17 +13,62 @@
    `pytest -v`
 
 
-## Uppdelning i träning, validering och test
+## Initiala beslut baserade på observationer i EDA (`01_eda.ipynb`)
 
-Uppdelningen görs i `src/data_split.py` och bygger på tid, inte slump, eftersom modellen ska förutsäga avbokningar för framtida bokningar.
+### Städning av data (`src/data_cleaning.py`)
+
+- Saknade värden i kolumnerna `children`, `country`, `agent` sätts till noll och `company` till "Unknown".
+- Orimliga värden som noll gäster, negativt eller extremt högt värde för `adr` och Undefined i segment/kanal tas bort, totalt 187 rader
+- Skapar `arrival_date` och härleder `booking_date` utifrån `arrival_date` och `lead_time`.
+- Filtrerar bort bokningar gjorda före 2015-07-01. Observationer före detta datum är ofullständiga (endast långa ledtider finns representerade) och innehåller skeva blockbokningar från 2014.
+
+### Preprocessing
+
+**De features som bedöms vara kända vid bokningstillfället och som kan användas för att träna modellen är:**
+
+- `lead_time`
+- `previous_cancellations`
+- `previous_bookings_not_canceled`
+- `hotel`
+- `arrival_date_month`
+- `market_segment`
+- `distribution_channel`
+- `customer_type`
+- `is_repeated_guest`
+- `agent`
+- `company`
+- `reserved_room_type`
+
+**Feature som behöver kontrollanalys:**
+
+`deposit_type` visar ett extremt mönster för `Non Refund`: 99,36 % avbokas och 92,88 % av raderna är identiska. Samma agenter har 14–51 % avbokningar för sina övriga bokningar, så mönstret beror på depositionstypen. Variabeln är beräknad från betalningar fram till ankomst eller avbokning och var därför inte nödvändigtvis känd vid bokningstillfället. Effekten bör undersökas genom att jämföra modellresultat med och utan variabeln.
+
+**Följande features bedöms vara sådana som sannolikt kan ha ändrats efter bokningen och däemed kan innebära dataläckage:**
+
+- `reservation_status` och `reservation_status_date`
+- `assigned_room_type`
+- `booking_changes`
+- `country`
+- `adults`, `children` och `babies`
+- `stays_in_weekend_nights`och `stays_in_week_nights`
+- `meal`
+- `adr`
+- `days in waiting list`
+- `total_of_special_requests`
+- `required_car_parking_spaces`
+
+
+## Uppdelning i träning, validering och test (`src/data_split.py`)
+
+Uppdelningen bygger på tid, inte slump, eftersom modellen ska förutsäga avbokningar för framtida bokningar.
 
 **Princip.** Prognosen görs vid bokningstillfället. Vid en prognostidpunkt får modellen bara lära sig av bokningar vars utfall redan var känt. Om en bokning avbokas eller blir en no-show är känt senast vid ankomsten, så träningsdata består av bokningar med ankomst före prognostidpunkten. Utvärderingsdata består av bokningar som görs efter den.
 
 | Delmängd | Innehåll | Antal | Andel avbokade |
 |---|---|---|---|
-| `train_val` | Ankomst före 2016-07-01 | 40 418 | 30,8 % |
+| `train_val` | Ankomst före 2016-07-01 | 40 414 | 30,8 % |
 | `val` | Bokningar gjorda 2016-07-01 – 2016-09-30 | 11 643 | 35,3 % |
-| `train_full` | Ankomst före 2016-10-01 | 55 397 | 32,1 % |
+| `train_full` | Ankomst före 2016-10-01 | 55 393 | 32,1 % |
 | `test` | Bokningar gjorda 2016-10-01 – 2016-12-31 | 14 879 | 39,6 % |
 
 Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärdera på `val`. De valda modellerna tränas sedan om på `train_full`, som även innehåller ankomsterna juli–september 2016, och utvärderas en gång på `test`.
