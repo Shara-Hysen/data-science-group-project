@@ -148,61 +148,64 @@ def plot_threshold_metrics(y_true, probabilities):
 
 
 
-def plot_roc_curve(y_true, probabilities):
+def plot_roc_curve(y_true, predictions):
     """
-    Visualiserar ROC-kurvan och beräknar ROC-AUC.
+    Visualiserar ROC-kurvor för en eller flera modeller.
 
     Args:
         y_true: Facit (0 = inte avbokad, 1 = avbokad).
-        probabilities: Modellens sannolikheter för avbokning.
+        predictions: Dictionary med modellnamn och
+                     sannolikheter för klass 1.
 
     Returns:
-        dict: ROC-AUC och threshold enligt Youdens J.
+        dict: ROC-AUC och Youdens threshold per modell.
     """
 
-    # Beräknar False Positive Rate, True Positive Rate
-    # och motsvarande thresholds.
-    fpr, tpr, thresholds = roc_curve(y_true, probabilities)
+    results = {}
 
-    # Hittar den punkt som maximerar skillnaden TPR - FPR.
-    # Detta kallas Youdens J-statistik.
-    best_idx = np.argmax(tpr - fpr)
+    plt.figure(figsize=(8, 6))
 
-    best_threshold = thresholds[best_idx]
-    best_fpr = fpr[best_idx]
-    best_tpr = tpr[best_idx]
+    # Går igenom varje modell och dess sannolikheter.
+    for name, probabilities in predictions.items():
 
-    # Beräknar arean under ROC-kurvan.
-    auc = roc_auc_score(y_true, probabilities)
+        # Beräknar ROC-kurvan.
+        fpr, tpr, thresholds = roc_curve(y_true, probabilities)
 
-    # Skriver ut resultaten.
-    print(f"ROC-AUC: {auc:.3f}")
-    print(f"Threshold (Youdens J): {best_threshold:.4f}")
+        # Hittar threshold som maximerar Youdens J.
+        best_idx = np.argmax(tpr - fpr)
+        best_threshold = thresholds[best_idx]
 
-    # Skapar ROC-diagrammet.
-    plt.figure(figsize=(7, 5))
+        # Beräknar ROC-AUC.
+        auc = roc_auc_score(y_true, probabilities)
 
-    plt.plot(fpr, tpr, label=f"Logistic Regression (AUC = {auc:.3f})")
+        # Sparar resultatet för aktuell modell.
+        results[name] = {
+            "roc_auc": auc,
+            "youden_threshold": best_threshold
+        }
 
-    # Diagonal linje motsvarar slumpmässig rangordning.
+        # Ritar modellens ROC-kurva.
+        plt.plot(
+            fpr,
+            tpr,
+            label=f"{name} (AUC = {auc:.3f})"
+        )
+
+        # Markerar modellens Youden-punkt.
+        plt.scatter(
+            fpr[best_idx],
+            tpr[best_idx],
+            label=f"{name} – Youdens J (threshold = {best_threshold:.2f})"
+        )
+
+    # Referenslinje för slumpmässig rangordning.
     plt.plot([0, 1], [0, 1], "--", label="Slumpnivå")
-
-    # Markerar threshold som maximerar Youdens J.
-    plt.scatter(
-        best_fpr,
-        best_tpr,
-        color="black",
-        label=f"Youden threshold = {best_threshold:.2f}"
-    )
 
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate (Recall)")
-    plt.title("ROC-kurva – Logistic Regression")
+    plt.title("ROC-kurvor – Modelljämförelse")
     plt.legend()
     plt.grid(alpha=0.3)
     plt.show()
 
-    return {
-        "roc_auc": auc,
-        "youden_threshold": best_threshold
-    }
+    return results
