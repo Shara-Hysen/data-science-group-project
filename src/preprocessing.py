@@ -6,13 +6,16 @@ Modul för preprocessing av hotellbokningsdata inför maskininlärning.
 
 Modulen ansvarar för att:
 1. Välja features som är tillgängliga vid bokningstillfället.
-2. Hantera saknade värden.
+2. Göra om agent till kategori och company till 0/1.
 3. Skala numeriska variabler.
-4. Koda kategoriska variabler med OneHotEncoder.
+4. Koda kategoriska variabler med OneHotEncoder. För agent slås
+   ovanliga kategorier ihop till en gemensam kategori.
 5. Separera features (X) och målvariabel (y).
 
-Preprocessorn anpassas endast på träningsdata
-för att undvika dataläckage.
+Saknade värden hanteras i städningen (src/data_cleaning.py). Imputerarna
+finns kvar som skydd om nya saknade värden skulle uppstå.
+
+Preprocessorn anpassas endast på träningsdata för att undvika dataläckage.
 """
 
 import pandas as pd
@@ -47,12 +50,27 @@ CATEGORICAL_FEATURES = [
     "distribution_channel",
     "customer_type",
     "is_repeated_guest",
-    "agent",
     "company",
     "reserved_room_type",
 ]
 
-FEATURES = NUMERICAL_FEATURES + CATEGORICAL_FEATURES
+AGENT_FEATURE = ["agent"]
+
+# Agenter med färre bokningar än detta i träningsdatan slås ihop.
+# Gränsen 50 minskar antalet agentkategorier från 210 till 72,
+# medan cirka 5 % av bokningarna hamnar i den gemensamma kategorin.
+MIN_AGENT_FREQUENCY = 50
+
+def get_categorical_features(include_deposit_type: bool = True) -> list[str]:
+    """
+    Returnerar de kategoriska variablerna, utom agent.
+
+    deposit_type ingår i huvudmodellen. Med include_deposit_type=False
+    kan modellen köras utan variabeln som jämförelse.
+    """
+    if include_deposit_type:
+        return CATEGORICAL_FEATURES + ["deposit_type"]
+    return CATEGORICAL_FEATURES
 
 
 # --------------------------------------------------
@@ -61,24 +79,35 @@ FEATURES = NUMERICAL_FEATURES + CATEGORICAL_FEATURES
 
 def split_features_target(
     df: pd.DataFrame,
+    include_deposit_type: bool = True,
 ) -> tuple[pd.DataFrame, pd.Series]:
     """
     Delar upp datasetet i features (X) och målvariabel (y).
 
     Endast de features som gruppen har valt inkluderas.
-    Övriga kolumner exkluderas för att minska risken
-    för dataläckage.
+    Övriga kolumner exkluderas för att minska risken för dataläckage.
     """
+    features = (
+        NUMERICAL_FEATURES
+        + AGENT_FEATURE
+        + get_categorical_features(include_deposit_type)
+    )
 
-    X = df[FEATURES].copy()
+
+    X = df[features].copy()
     y = df[TARGET].copy()
 
     # Agent och company är ID-nummer och behandlas
     # därför som kategoriska variabler.
     # Saknade ID-värden representeras av 0.
 
-    X["agent"] = X["agent"].fillna(0).astype(str)
-    X["company"] = X["company"].fillna(0).astype(str)
+    # Agent är ett ID och behandlas som kategori.
+    # 0 betyder ingen resebyrå (satt i städningen).
+    X["agent"] = X["agent"].astype(int).astype(str)
+
+    # Company görs om till 0/1: bokad via företag eller inte.
+    # 0 betyder inget företag (satt i städningen).
+    X["company"] = (X["company"] != 0).astype(int)
 
     return X, y
 
@@ -87,7 +116,7 @@ def split_features_target(
 # Skapa preprocessing-pipeline
 # --------------------------------------------------
 
-def build_preprocessor() -> ColumnTransformer:
+def build_preprocessor(include_deposit_type: bool = True) -> ColumnTransformer:
     """
     Skapar en preprocessing-pipeline.
 
@@ -95,10 +124,17 @@ def build_preprocessor() -> ColumnTransformer:
     - Ersätter saknade värden med medianen.
     - Standardiserar värden med StandardScaler.
 
-    Kategoriska features:
-    - Ersätter saknade värden med vanligaste värdet.
-    - Omvandlar kategorier med OneHotEncoder.
+    Agent:
+    - Omvandlas med OneHotEncoder. Agenter med färre än MIN_AGENT_FREQUENCY
+      bokningar i träningsdatan, och agenter som inte finns i träningsdatan
+      alls, slås ihop till en gemensam kategori.
 
+    Övriga kategoriska features:
+    - Ersätter eventuella saknade värden med vanligaste värdet.
+    - Omvandlas med OneHotEncoder. Kategorier som inte finns i
+      träningsdatan får nollor i alla kolumner..
+
+    Samma värde på include_deposit_type måste användas som i split_features_target
     Preprocessorn ska endast anpassas på träningsdata.
     """
 
@@ -116,7 +152,22 @@ def build_preprocessor() -> ColumnTransformer:
         ]
     )
 
-    # Pipeline för kategoriska variabler
+    # Agenter med färre än 50 bokningar i träningsdatan, och agenter som inte
+    # finns i träningsdatan alls, slås ihop till en gemensam kategori.
+    agent_pipeline = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            (
+                "encoder",
+                OneHotEncoder(
+                    handle_unknown="infrequent_if_exist",
+                    min_frequency=MIN_AGENT_FREQUENCY,
+                ),
+            ),
+        ]
+    )
+
+    # Pipeline för övriga kategoriska variabler
     categorical_pipeline = Pipeline(
         steps=[
             (
@@ -131,7 +182,7 @@ def build_preprocessor() -> ColumnTransformer:
     )
 
     # Kombinerar numerisk och kategorisk preprocessing
-    preprocessor = ColumnTransformer(
+    return ColumnTransformer(
         transformers=[
             (
                 "num",
@@ -139,17 +190,21 @@ def build_preprocessor() -> ColumnTransformer:
                 NUMERICAL_FEATURES
             ),
             (
+                "agent",
+                agent_pipeline,
+                AGENT_FEATURE
+            ),
+            (
                 "cat",
                 categorical_pipeline,
-                CATEGORICAL_FEATURES
+                get_categorical_features(include_deposit_type)
             ),
+
         ],
 
         # Exkluderar kolumner som inte ingår i feature-urvalet
         remainder="drop"
     )
-
-    return preprocessor
 
 
 # --------------------------------------------------
@@ -166,31 +221,33 @@ if __name__ == "__main__":
     train = splits["train_val"]
     val = splits["val"]
 
+    for include_deposit_type in [True, False]:
     # Separera features och målvariabel
-    X_train, y_train = split_features_target(train)
-    X_val, y_val = split_features_target(val)
+        X_train, y_train = split_features_target(train, include_deposit_type)
+        X_val, y_val = split_features_target(val, include_deposit_type)
 
-    # Skapa preprocessorn
-    preprocessor = build_preprocessor()
+        # Skapa preprocessorn
+        preprocessor = build_preprocessor(include_deposit_type)
 
-    # Anpassa preprocessorn endast på träningsdata
-    X_train_processed = preprocessor.fit_transform(X_train)
+        # Anpassa preprocessorn endast på träningsdata
+        X_train_processed = preprocessor.fit_transform(X_train)
 
-    # Omvandla valideringsdata med samma preprocessor
-    X_val_processed = preprocessor.transform(X_val)
+        # Omvandla valideringsdata med samma preprocessor
+        X_val_processed = preprocessor.transform(X_val)
 
-    # Kontrollera dimensionerna före och efter preprocessing
-    print("Träningsdata före:", X_train.shape)
-    print("Träningsdata efter:", X_train_processed.shape)
+        # Kontrollera dimensionerna före och efter preprocessing
+        print(f"\nMed deposit_type: {include_deposit_type}")
+        print("Träningsdata före:", X_train.shape)
+        print("Träningsdata efter:", X_train_processed.shape)
 
-    print("Valideringsdata före:", X_val.shape)
-    print("Valideringsdata efter:", X_val_processed.shape)
+        print("Valideringsdata före:", X_val.shape)
+        print("Valideringsdata efter:", X_val_processed.shape)
 
-    # Kontrollera att antalet rader inte har förändrats
-    assert X_train_processed.shape[0] == len(X_train)
-    assert X_val_processed.shape[0] == len(X_val)
+        # Kontrollera att antalet rader inte har förändrats
+        assert X_train_processed.shape[0] == len(X_train)
+        assert X_val_processed.shape[0] == len(X_val)
 
-    # Kontrollera att båda dataseten har samma antal kolumner
-    assert X_train_processed.shape[1] == X_val_processed.shape[1]
+        # Kontrollera att båda dataseten har samma antal kolumner
+        assert X_train_processed.shape[1] == X_val_processed.shape[1]
 
     print("Preprocessing genomförd utan fel!")
