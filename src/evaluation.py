@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from sklearn.metrics import (
     confusion_matrix,
@@ -209,3 +210,79 @@ def plot_roc_curve(y_true, predictions):
     plt.show()
 
     return results
+
+
+def flag_top_share(scores: pd.Series | np.ndarray, share: float = 0.20) -> np.ndarray:
+    """
+    Flaggar de bokningar som har högst riskpoäng.
+
+    Funktionen kan användas för både baseline och ML-modeller.
+
+    Args:
+        scores: Riskpoäng för varje bokning, t.ex. lead_time
+                från baseline eller förutsagda sannolikheter
+                från en ML-modell.
+        share: Andel bokningar som ska flaggas (standard 20 %).
+
+    Returns:
+        np.ndarray: En array med 1 för flaggade bokningar
+                    och 0 för övriga, i samma radordning som indata.
+    """
+    if not 0 <= share <= 1:
+        raise ValueError("share måste vara mellan 0 och 1.")
+
+    # Omvandla riskpoängen till en NumPy-array.
+    scores = np.asarray(scores)
+
+    # Beräkna hur många bokningar som ska flaggas.
+    n_flagged = int(np.ceil(len(scores) * share))
+
+    # Skapa en array med 0 för alla bokningar.
+    flags = np.zeros(len(scores), dtype=int)
+
+    # Hitta positionerna för bokningarna med högst riskpoäng.
+    top_positions = np.argsort(-scores, kind="stable")[:n_flagged]
+
+    # Markera de utvalda bokningarna med 1.
+    flags[top_positions] = 1
+
+    return flags
+
+
+def evaluate_top_share(
+    y_true: pd.Series | np.ndarray,
+    scores: pd.Series | np.ndarray,
+    share: float = 0.20
+) -> dict:
+    """
+    Utvärderar de bokningar som flaggas med högst riskpoäng.
+
+    Args:
+        y_true: Verkliga avbokningar (0 eller 1).
+        scores: Riskpoäng från baseline eller en ML-modell.
+        share: Andel bokningar som ska flaggas (standard 20 %).
+
+    Returns:
+        dict: Antal bokningar, antal flaggade, korrekt flaggade
+              samt precision, recall och F1-score.
+    """
+
+    # Flagga de bokningar som har högst riskpoäng.
+    y_pred = flag_top_share(scores, share)
+
+    # Jämför y_pred med y_true och beräkna precision, recall och F1-score.
+    metrics = evaluate_model(y_true, y_pred)
+
+    # Sammanställ antalet bokningar och utvärderingsmåtten.
+    results = {
+        "share": share,
+        "antal_bokningar": len(y_true),
+        "antal_flaggade": int(y_pred.sum()),
+        "korrekt_flaggade": int(np.sum((np.asarray(y_true) == 1) & (y_pred == 1))),
+        "precision": metrics["Precision"],
+        "recall": metrics["Recall"],
+        "f1_score": metrics["F1-score"],
+    }
+
+    return results
+
