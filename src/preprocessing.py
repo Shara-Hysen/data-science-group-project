@@ -11,6 +11,8 @@ Modulen ansvarar för att:
 4. Koda kategoriska variabler med OneHotEncoder. För agent slås
    ovanliga kategorier ihop till en gemensam kategori.
 5. Separera features (X) och målvariabel (y).
+6. Valfritt ta med misstänkta läckagevariabler (include_suspected_leakage=True)
+   för en jämförelsemodell. De ingår inte i huvudmodellen.
 
 Saknade värden hanteras i städningen (src/data_cleaning.py). Imputerarna
 finns kvar som skydd om nya saknade värden skulle uppstå.
@@ -61,16 +63,58 @@ AGENT_FEATURE = ["agent"]
 # medan cirka 5 % av bokningarna hamnar i den gemensamma kategorin.
 MIN_AGENT_FREQUENCY = 50
 
-def get_categorical_features(include_deposit_type: bool = True) -> list[str]:
+# Variabler som enligt Antonio m.fl. (2019) ofta ändras vid incheckningen
+# och därför skiljer sig mellan avbokade och genomförda bokningar.
+# De ingår inte i huvudmodellen, bara i en jämförelsemodell som visar
+# hur mycket de skulle blåsa upp resultatet.
+SUSPECTED_LEAKAGE_NUMERICAL = [
+    "adults",
+    "children",
+    "babies",
+    "stays_in_weekend_nights",
+    "stays_in_week_nights",
+]
+
+SUSPECTED_LEAKAGE_CATEGORICAL = [
+    "meal",
+]
+
+# country har över 100 kategorier och får därför samma sammanslagning
+# av ovanliga kategorier som agent.
+SUSPECTED_LEAKAGE_COUNTRY = ["country"]
+MIN_COUNTRY_FREQUENCY = 50
+
+def get_numerical_features(include_suspected_leakage: bool = False) -> list[str]:
+    """
+    Returnerar de numeriska variablerna.
+
+    Med include_suspected_leakage=True ingår även de misstänkta
+    läckagevariablerna, för jämförelsemodellen.
+    """
+    if include_suspected_leakage:
+        return NUMERICAL_FEATURES + SUSPECTED_LEAKAGE_NUMERICAL
+    return NUMERICAL_FEATURES
+
+
+def get_categorical_features(
+    include_deposit_type: bool = True,
+    include_suspected_leakage: bool = False,
+) -> list[str]:
     """
     Returnerar de kategoriska variablerna, utom agent.
 
     deposit_type ingår i huvudmodellen. Med include_deposit_type=False
     kan modellen köras utan variabeln som jämförelse.
+
+    Med include_suspected_leakage=True ingår även de misstänkta
+    läckagevariablerna, för jämförelsemodellen.
     """
+    features = CATEGORICAL_FEATURES.copy()
     if include_deposit_type:
-        return CATEGORICAL_FEATURES + ["deposit_type"]
-    return CATEGORICAL_FEATURES
+        features += ["deposit_type"]
+    if include_suspected_leakage:
+        features += SUSPECTED_LEAKAGE_CATEGORICAL
+    return features
 
 
 # --------------------------------------------------
@@ -80,6 +124,7 @@ def get_categorical_features(include_deposit_type: bool = True) -> list[str]:
 def split_features_target(
     df: pd.DataFrame,
     include_deposit_type: bool = True,
+    include_suspected_leakage: bool = False,
 ) -> tuple[pd.DataFrame, pd.Series]:
     """
     Delar upp datasetet i features (X) och målvariabel (y).
@@ -88,18 +133,15 @@ def split_features_target(
     Övriga kolumner exkluderas för att minska risken för dataläckage.
     """
     features = (
-        NUMERICAL_FEATURES
+        get_numerical_features(include_suspected_leakage)
         + AGENT_FEATURE
-        + get_categorical_features(include_deposit_type)
+        + get_categorical_features(include_deposit_type, include_suspected_leakage)
     )
-
+    if include_suspected_leakage:
+        features += SUSPECTED_LEAKAGE_COUNTRY
 
     X = df[features].copy()
     y = df[TARGET].copy()
-
-    # Agent och company är ID-nummer och behandlas
-    # därför som kategoriska variabler.
-    # Saknade ID-värden representeras av 0.
 
     # Agent är ett ID och behandlas som kategori.
     # 0 betyder ingen resebyrå (satt i städningen).
@@ -116,7 +158,10 @@ def split_features_target(
 # Skapa preprocessing-pipeline
 # --------------------------------------------------
 
-def build_preprocessor(include_deposit_type: bool = True) -> ColumnTransformer:
+def build_preprocessor(
+    include_deposit_type: bool = True,
+    include_suspected_leakage: bool = False,
+) -> ColumnTransformer:
     """
     Skapar en preprocessing-pipeline.
 
@@ -129,12 +174,17 @@ def build_preprocessor(include_deposit_type: bool = True) -> ColumnTransformer:
       bokningar i träningsdatan, och agenter som inte finns i träningsdatan
       alls, slås ihop till en gemensam kategori.
 
+    Country (endast med include_suspected_leakage=True):
+      - Omvandlas som agent. Länder med färre än MIN_COUNTRY_FREQUENCY
+        bokningar i träningsdatan slås ihop till en gemensam kategori.
+
     Övriga kategoriska features:
     - Ersätter eventuella saknade värden med vanligaste värdet.
     - Omvandlas med OneHotEncoder. Kategorier som inte finns i
-      träningsdatan får nollor i alla kolumner..
+      träningsdatan får nollor i alla kolumner.
 
-    Samma värde på include_deposit_type måste användas som i split_features_target
+    Samma värden på include_deposit_type och include_suspected_leakage
+    måste användas som i split_features_target.
     Preprocessorn ska endast anpassas på träningsdata.
     """
 
@@ -182,28 +232,47 @@ def build_preprocessor(include_deposit_type: bool = True) -> ColumnTransformer:
     )
 
     # Kombinerar numerisk och kategorisk preprocessing
+    
+    transformers=[
+        (
+            "num",
+            numerical_pipeline,
+            get_numerical_features(include_suspected_leakage)
+        ),
+        (
+            "agent",
+            agent_pipeline,
+            AGENT_FEATURE
+        ),
+        (
+            "cat",
+            categorical_pipeline,
+            get_categorical_features(include_deposit_type, include_suspected_leakage)
+        ),
+
+    ]
+
+    # Länder med färre än 50 bokningar i träningsdatan, och länder som inte
+    # finns i träningsdatan alls, slås ihop till en gemensam kategori.
+    if include_suspected_leakage:
+        country_pipeline = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                (
+                    "encoder",
+                    OneHotEncoder(
+                        handle_unknown="infrequent_if_exist",
+                        min_frequency=MIN_COUNTRY_FREQUENCY,
+                    ),
+                ),
+            ]
+        )
+        transformers.append(("country", country_pipeline, SUSPECTED_LEAKAGE_COUNTRY))
+
     return ColumnTransformer(
-        transformers=[
-            (
-                "num",
-                numerical_pipeline,
-                NUMERICAL_FEATURES
-            ),
-            (
-                "agent",
-                agent_pipeline,
-                AGENT_FEATURE
-            ),
-            (
-                "cat",
-                categorical_pipeline,
-                get_categorical_features(include_deposit_type)
-            ),
-
-        ],
-
+        transformers=transformers,
         # Exkluderar kolumner som inte ingår i feature-urvalet
-        remainder="drop"
+        remainder="drop",
     )
 
 
@@ -221,13 +290,19 @@ if __name__ == "__main__":
     train = splits["train_val"]
     val = splits["val"]
 
-    for include_deposit_type in [True, False]:
+    variants = [
+        {"include_deposit_type": True, "include_suspected_leakage": False},
+        {"include_deposit_type": False, "include_suspected_leakage": False},
+        {"include_deposit_type": True, "include_suspected_leakage": True},
+    ]
+
+    for settings in variants:
     # Separera features och målvariabel
-        X_train, y_train = split_features_target(train, include_deposit_type)
-        X_val, y_val = split_features_target(val, include_deposit_type)
+        X_train, y_train = split_features_target(train, **settings)
+        X_val, y_val = split_features_target(val, **settings)
 
         # Skapa preprocessorn
-        preprocessor = build_preprocessor(include_deposit_type)
+        preprocessor = build_preprocessor(**settings)
 
         # Anpassa preprocessorn endast på träningsdata
         X_train_processed = preprocessor.fit_transform(X_train)
@@ -236,7 +311,7 @@ if __name__ == "__main__":
         X_val_processed = preprocessor.transform(X_val)
 
         # Kontrollera dimensionerna före och efter preprocessing
-        print(f"\nMed deposit_type: {include_deposit_type}")
+        print(f"\n{settings}")
         print("Träningsdata före:", X_train.shape)
         print("Träningsdata efter:", X_train_processed.shape)
 
