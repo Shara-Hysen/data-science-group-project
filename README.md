@@ -16,6 +16,28 @@
     `python -m src.data_cleaning`
 
 
+## Avvikelser från projektplanen
+
+**Tidsuppdelning**
+- Uppdelningen görs efter bokningsdatum i stället för ankomstdatum, efter feedback. Träningsdata vid en prognostidpunkt består av bokningar med ankomst före den, eftersom utfallet är känt senast vid ankomsten. Utvärderingsdata består av bokningar gjorda efter prognostidpunkten.
+- Perioderna har därför ändrats. Planen hade test på ankomster januari–augusti 2017. Nu valideras modellerna på bokningar gjorda juli–september 2016 och testas på bokningar gjorda oktober–december 2016. Bokningar gjorda från 2017 används inte, eftersom bokningar med lång ledtid saknas för den perioden.
+- Bokningar gjorda före juli 2015 tas bort i städningen. De är ofullständiga, eftersom bara bokningar med lång ledtid finns med, och innehåller en avvikande topp hösten 2014.
+
+**Depositionstyp**
+- Ej återbetalningsbara bokningar (Non Refund) behålls, eftersom de är en del av hotellens bokningar, trots att de beter sig som gruppblock från resebyråer.
+- `deposit_type` ingår i huvudmodellen, och modellerna körs även utan den som jämförelse. Planen hade den omvända ordningen.
+
+**Baseline**
+- Vanligaste klassen används inte som baseline. Den förutsäger att ingen bokning avbokas, vilket ger 63 % rätt men hittar ingen avbokning, och den kan inte rangordna bokningar.
+- Lead time-regeln används som rangordning (de 20 % bokningar med längst ledtid flaggas) i stället för en fast gräns på 90 dagar. Då flaggar baseline och modeller exakt lika många bokningar, och ingen gräns behöver väljas utifrån EDA på hela datan.
+
+**Dubbletter**
+- Ingen separat analys utan dubbletter görs. Identiska rader har samma bokningsdatum och hamnar därför alltid i samma delmängd, så risken att samma bokning finns i både träning och test är redan hanterad.
+
+**Modeller**
+- Beslutsträd prövades inte av tidsskäl.
+
+
 ## Initiala beslut baserade på observationer i EDA (`01_eda.ipynb`)
 
 ### Städning av data (`src/data_cleaning.py`)
