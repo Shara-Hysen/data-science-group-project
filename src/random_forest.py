@@ -48,27 +48,6 @@ def train_random_forest(
     return model
 
 
-def predict_probabilities(model: RandomForestClassifier, X_val):
-    """
-    Beräknar sannolikheten för avbokning (klass 1).
-
-    Args:
-        model: Den tränade Random Forest-modellen.
-        X_val: Förbehandlade features från valideringsdatan.
-
-    Returns:
-        NumPy-array med sannolikheter för klass 1.
-    """
-    return model.predict_proba(X_val)[:, 1]
-
-
-def predict_with_threshold(probabilities, threshold: float = 0.5):
-    """
-    Omvandlar sannolikheter till klassificeringar (0 eller 1) utifrån threshold.
-    """
-    return (probabilities >= threshold).astype(int)
-
-
 def get_feature_importances(model: RandomForestClassifier, feature_names: list) -> pd.DataFrame:
     """
     Hämtar variablernas betydelse (feature importance) i fallande ordning.

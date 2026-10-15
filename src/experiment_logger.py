@@ -105,11 +105,14 @@ def save_plot(
     elif fig is not None:
         target_fig = fig
     else:
-        # Om inget skickades in, fånga den senast aktiva figuren
+        # Kontrollera att en aktiv figur finns innan vi sparar.
+        if not plt.get_fignums():
+            raise ValueError("Ingen aktiv figur att spara.")
+
         target_fig = plt.gcf()
 
     target_fig.savefig(filepath, bbox_inches="tight", dpi=dpi)
-    logger.info("Figur sparad: %s, filepath")
+    logger.info("Figur sparad: %s", filepath)
 
     if close_fig:
         plt.close(target_fig)
