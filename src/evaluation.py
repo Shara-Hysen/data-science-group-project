@@ -59,7 +59,8 @@ def plot_confusion_matrix(y_true, y_pred):
     disp.plot(values_format="d")
 
     plt.title("Confusion Matrix")
-    plt.show()
+
+    return plt.gcf()
 
 
 
@@ -104,7 +105,8 @@ def plot_multiple_confusion_matrices(y_true, predictions):
         axes[0, i].set_title(name)
 
     plt.tight_layout()
-    plt.show()
+
+    return plt.gcf()
 
 
 
@@ -145,7 +147,8 @@ def plot_threshold_metrics(y_true, probabilities):
     plt.title("Precision, Recall och F1 vid olika thresholds")
     plt.legend()
     plt.grid(alpha=0.3)
-    plt.show()
+
+    return plt.gcf()
 
 
 
@@ -207,7 +210,6 @@ def plot_roc_curve(y_true, predictions):
     plt.title("ROC-kurvor – Modelljämförelse")
     plt.legend()
     plt.grid(alpha=0.3)
-    plt.show()
 
     return results
 
