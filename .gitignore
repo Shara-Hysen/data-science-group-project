@@ -219,14 +219,20 @@ __marimo__/
 
 # Data- och modellfiler (hindra tunga artefakter från att pushas till git)
 data/
-*.csv
 *.parquet
 *.pkl
 *.joblib
 
-# Mappar för exporterade diagram/modeller (behåll mapparna via .gitkeep om ni vill, men ignorera innehållet)
+# Ignorera CSV-filer generellt, men tillåt experimentloggen
+*.csv
+!outputs/experiment_results.csv
+
+# Diagram och figurer sparas i repot, men ignorera temporära/andra exporter om så önskas
 outputs/*
 !outputs/.gitkeep
+!outputs/experiment_results.csv
+!outputs/figures/
+!outputs/figures/*
 
 # Lokala operativsystemfiler
 .DS_Store
