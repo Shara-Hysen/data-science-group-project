@@ -4,3 +4,8 @@ timestamp,model,feature_set,dataset,precision_at_20,recall_at_20,f1_score,antal_
 2026-10-16 16:20,Random Forest,med deposit_type,val,0.6737,0.382,0.4876,2329,1569,"n_estimators=100, max_depth=15"
 2026-10-16 16:20,Random Forest,med deposit_type,val,0.6737,0.382,0.4876,2329,1569,"n_estimators=100, max_depth=15, min_samples_leaf=10"
 2026-10-16 16:22,Random Forest,utan deposit_type,val,0.6406,0.3633,0.4636,2329,1492,"n_estimators=100, max_depth=15, min_samples_leaf=10"
+2026-10-17 12:04,Random Forest,med deposit_type,val,0.669,0.3794,0.4842,2329,1558,"n_estimators=100, max_depth=15, min_samples_leaf=10"
+2026-10-17 12:04,Random Forest,utan deposit_type,val,0.6462,0.3664,0.4677,2329,1505,"n_estimators=100, max_depth=15, min_samples_leaf=10"
+2026-10-17 12:40,Random Forest,med deposit_type,val,0.669,0.3794,0.4842,2329,1558,"n_estimators=100, max_depth=15, min_samples_leaf=10"
+2026-10-17 12:40,Random Forest,utan deposit_type,val,0.6462,0.3664,0.4677,2329,1505,"n_estimators=100, max_depth=15, min_samples_leaf=10"
+2026-10-17 12:40,Random Forest,med misstänkta läckagevariabler,val,0.6767,0.3837,0.4897,2329,1576,"n_estimators=100, max_depth=15, min_samples_leaf=10"
