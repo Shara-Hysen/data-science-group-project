@@ -144,7 +144,7 @@ En begränsning är att modellen bara fångar samband där risken ökar eller mi
 Random Forest består av många beslutsträd, där varje träd tränas på ett slumpmässigt urval av bokningar och variabler. Sannolikheten för avbokning är medelvärdet av trädens förutsägelser. Modellen kan fånga samband som inte är linjära och samspel mellan variabler, till exempel att lång ledtid betyder olika mycket för olika marknadssegment.
 
 - Använder samma preprocessing som logistisk regression.
-- Tränas med `n_estimators=100` och `max_depth=15`. `min_samples_leaf` valdes till [X] genom att jämföra flera värden på valideringsdatan (se `notebooks/random_forest.ipynb`).
+- Tränas med `n_estimators=100` och `max_depth=15`. `min_samples_leaf` valdes till [10] genom att jämföra flera värden på valideringsdatan (se `notebooks/random_forest.ipynb`).
 - Bokningarna rangordnas efter den förutsagda sannolikheten, och de 20 % med högst sannolikhet flaggas.
 - Körs både med och utan `deposit_type`.
 

@@ -14,7 +14,7 @@ def train_random_forest(
     n_estimators: int = 100,
     max_depth: int | None = 15,
     min_samples_split: int = 2,
-    min_samples_leaf: int = 2,
+    min_samples_leaf: int = 10,
     random_state: int = 42,
     n_jobs: int = -1,
     **kwargs
