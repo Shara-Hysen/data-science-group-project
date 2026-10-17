@@ -150,3 +150,13 @@ Random Forest består av många beslutsträd, där varje träd tränas på ett s
 
 Modellen är svårare att tolka än logistisk regression. Feature importance visar vilka variabler träden använder mest, men måttet räknas på träningsdatan och kan överskatta variabler med många möjliga värden, som `lead_time`. One-hot-kodade variabler som `agent` delas dessutom upp på många kolumner, vilket kan göra att de ser mindre viktiga ut än de är.
 
+## Jämförelsemodell med misstänkta läckagevariabler (Issue #35)
+
+För att undersöka om misstänkta läckagevariabler påverkar modellens prestanda tränades en extra Random Forest-modell med `include_suspected_leakage=True`. Modellen använde samma tränings- och valideringsdata samt hyperparametrar som huvudmodellen.
+
+| Modell | Precision top 20 % | Recall top 20 % |
+|---|---|---|
+| Huvudmodell | 66,90 % | 37,94 % |
+| Med misstänkta läckagevariabler | 67,67 % | 38,37 % |
+
+Jämförelsemodellen uppnådde något högre precision och recall, men förbättringen var liten. Resultatet ger därför inget tydligt stöd för ett omfattande dataläckage, men kan inte heller utesluta att läckage förekommer.
