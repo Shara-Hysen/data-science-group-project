@@ -150,6 +150,22 @@ Random Forest består av många beslutsträd, där varje träd tränas på ett s
 
 Modellen är svårare att tolka än logistisk regression. Feature importance visar vilka variabler träden använder mest, men måttet räknas på träningsdatan och kan överskatta variabler med många möjliga värden, som `lead_time`. One-hot-kodade variabler som `agent` delas dessutom upp på många kolumner, vilket kan göra att de ser mindre viktiga ut än de är.
 
+## Bokningar med och utan registrerade ändringar (Issue #33)
+
+För att undersöka hur modellerna presterar för bokningar med respektive utan registrerade ändringar delades valideringsdatan upp utifrån `booking_changes`.
+
+De 20 % av bokningarna med högst förutsagd avbokningsrisk flaggades i hela valideringsdatan. Därefter beräknades precision och recall separat för de två grupperna.
+
+| Modell | Grupp | Precision | Recall |
+|---|---|---|---|
+| Baseline | Utan ändringar | 59,45 % | 29,84 % |
+| Baseline | Med ändringar | 34,05 % | 40,05 % |
+| Logistic Regression | Utan ändringar | 66,00 % | 34,58 % |
+| Logistic Regression | Med ändringar | 39,22 % | 38,04 % |
+| Random Forest | Utan ändringar | 69,41 % | 37,55 % |
+| Random Forest | Med ändringar | 51,24 % | 41,56 % |
+
+
 ## Jämförelsemodell med misstänkta läckagevariabler (Issue #35)
 
 För att undersöka om misstänkta läckagevariabler påverkar modellens prestanda tränades en extra Random Forest-modell med `include_suspected_leakage=True`. Modellen använde samma tränings- och valideringsdata samt hyperparametrar som huvudmodellen.
@@ -160,3 +176,11 @@ För att undersöka om misstänkta läckagevariabler påverkar modellens prestan
 | Med misstänkta läckagevariabler | 67,67 % | 38,37 % |
 
 Jämförelsemodellen uppnådde något högre precision och recall, men förbättringen var liten. Resultatet ger därför inget tydligt stöd för ett omfattande dataläckage, men kan inte heller utesluta att läckage förekommer.
+
+### Slutsats
+
+Random Forest uppnådde högst precision och recall i båda grupperna. Samtliga modeller hade högre precision för bokningar utan registrerade ändringar, medan recall var högre för bokningar med ändringar.
+
+Resultaten visar att modellernas prestanda varierar mellan grupperna. Skillnaderna kan bero på att grupperna har olika egenskaper och avbokningsmönster.
+
+Jämförelsen kan dock inte avgöra om dataläckage förekommer, eftersom de ursprungliga värdena före eventuella ändringar saknas.
