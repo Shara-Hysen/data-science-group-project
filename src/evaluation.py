@@ -9,7 +9,9 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     roc_curve,
-    roc_auc_score
+    roc_auc_score,
+    precision_recall_curve,
+    average_precision_score
 )
 
 
@@ -208,6 +210,41 @@ def plot_roc_curve(y_true, predictions):
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate (Recall)")
     plt.title("ROC-kurvor – Modelljämförelse")
+    plt.legend()
+    plt.grid(alpha=0.3)
+
+    return results
+
+
+def plot_pr_curve(y_true, predictions):
+    """
+    Visualiserar Precision-Recall-kurvor för en eller flera modeller.
+
+    Args:
+        y_true: Facit (0 = inte avbokad, 1 = avbokad).
+        predictions: Dictionary med modellnamn och sannolikheter för klass 1.
+
+    Returns:
+        dict: PR-AUC (Average Precision) per modell.
+    """
+    results = {}
+    fig = plt.figure(figsize=(8, 6))
+
+    # Slumpnivå: andelen faktiska avbokningar i datan
+    baseline = np.mean(y_true)
+    plt.plot([0, 1], [baseline, baseline], "--", label=f"Slumpnivå ({baseline:.2f})")
+
+    # Plotta PR-kurvan för varje modell
+    for name, probabilities in predictions.items():
+        precision, recall, _ = precision_recall_curve(y_true, probabilities)
+        ap = average_precision_score(y_true, probabilities)
+
+        results[name] = {"pr_auc": ap}
+        plt.plot(recall, precision, label=f"{name} (PR-AUC = {ap:.3f})")
+
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Precision-Recall-kurvor – Modelljämförelse")
     plt.legend()
     plt.grid(alpha=0.3)
 
