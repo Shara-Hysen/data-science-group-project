@@ -165,6 +165,18 @@ De 20 % av bokningarna med högst förutsagd avbokningsrisk flaggades i hela val
 | Random Forest | Utan ändringar | 69,41 % | 37,55 % |
 | Random Forest | Med ändringar | 51,24 % | 41,56 % |
 
+
+## Jämförelsemodell med misstänkta läckagevariabler (Issue #35)
+
+För att undersöka om misstänkta läckagevariabler påverkar modellens prestanda tränades en extra Random Forest-modell med `include_suspected_leakage=True`. Modellen använde samma tränings- och valideringsdata samt hyperparametrar som huvudmodellen.
+
+| Modell | Precision top 20 % | Recall top 20 % |
+|---|---|---|
+| Huvudmodell | 66,90 % | 37,94 % |
+| Med misstänkta läckagevariabler | 67,67 % | 38,37 % |
+
+Jämförelsemodellen uppnådde något högre precision och recall, men förbättringen var liten. Resultatet ger därför inget tydligt stöd för ett omfattande dataläckage, men kan inte heller utesluta att läckage förekommer.
+
 ### Slutsats
 
 Random Forest uppnådde högst precision och recall i båda grupperna. Samtliga modeller hade högre precision för bokningar utan registrerade ändringar, medan recall var högre för bokningar med ändringar.
