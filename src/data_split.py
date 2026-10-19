@@ -18,9 +18,9 @@ Bokningar gjorda från 2017 används inte, eftersom bokningar med lång ledtid
 saknas i datan (den slutar med ankomster i augusti 2017)
 """
 
-from pathlib import Path
 import pandas as pd
-
+from pathlib import Path
+from src.data_cleaning import validate_data
 from src.config import get_logger
 
 logger = get_logger(__name__)
@@ -32,9 +32,21 @@ TEST_SPLIT_DATE, TEST_END = "2016-10-01", "2017-01-01"
 
 
 def load_cleaned_data(path: Path = CLEANED_PATH) -> pd.DataFrame:
-    """Läser in städad data med datumkolumnerna som datum."""
+    """Läser in städad data med datumkolumnerna som datum.
+    
+    Datan valideras mot schemat för städad data. Om filen har skapats med en
+    äldre version av städningen stoppas inläsningen.
+    """
     logger.info("Läser in städad data från %s", path)
-    return pd.read_csv(path, parse_dates=["arrival_date", "booking_date"])
+    df = pd.read_csv(path, parse_dates=["arrival_date", "booking_date"])
+
+    try:
+        return validate_data(df)
+    except Exception as exc:
+        raise ValueError(
+            "Den städade datafilen stämmer inte med nuvarande städning. "
+            "Kör: python -m src.data_cleaning"
+        ) from exc
 
 def split_at(df: pd.DataFrame, split_date: str, eval_end: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Delar upp data vid en prognostidpunkt."""
