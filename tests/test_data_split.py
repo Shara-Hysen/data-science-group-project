@@ -31,6 +31,27 @@ def bookings() -> pd.DataFrame:
     return df
 
 
+def make_cleaned_row(**changes) -> dict:
+    """En rad som uppfyller schemat för städad data. Enskilda värden kan ändras."""
+    row = {
+        "id": "A",
+        "booking_date": "2016-01-10",
+        "arrival_date": "2016-03-01",
+        "is_canceled": 0,
+        "adults": 2,
+        "children": 0.0,
+        "babies": 0,
+        "country": "PRT",
+        "agent": 9.0,
+        "company": 0.0,
+        "adr": 100.0,
+        "market_segment": "Online TA",
+        "distribution_channel": "TA/TO",
+    }
+    row.update(changes)
+    return row
+
+
 def test_get_splits_puts_each_booking_in_the_right_subsets(bookings):
     splits = {name: set(d["id"]) for name, d in get_splits(bookings).items()}
     assert splits == {
@@ -41,9 +62,19 @@ def test_get_splits_puts_each_booking_in_the_right_subsets(bookings):
     }
 
 
-def test_load_cleaned_data_parses_dates(tmp_path, bookings):
+def test_load_cleaned_data_parses_dates(tmp_path):
     path = tmp_path / "cleaned.csv"
-    bookings.to_csv(path, index=False)
+    pd.DataFrame([make_cleaned_row()]).to_csv(path, index=False)
+
     df = load_cleaned_data(path)
+
     assert pd.api.types.is_datetime64_any_dtype(df["arrival_date"])
     assert pd.api.types.is_datetime64_any_dtype(df["booking_date"])
+
+def test_load_cleaned_data_rejects_outdated_file(tmp_path):
+    """En fil som skapats med en äldre städning, här med Undefined kvar, ska stoppas."""
+    path = tmp_path / "cleaned.csv"
+    pd.DataFrame([make_cleaned_row(market_segment="Undefined")]).to_csv(path, index=False)
+
+    with pytest.raises(ValueError, match="python -m src.data_cleaning"):
+        load_cleaned_data(path)
