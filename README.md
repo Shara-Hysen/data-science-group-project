@@ -9,15 +9,15 @@
 2. Installera beroenden:
    `pip install -r requirements.txt`
 
-   Den städade filen sparas i `data/processed/` och följer inte med i Git.  
-   Kör kommandot igen efter varje ändring i städningen.  
-   Om filen är gammal stoppas inläsningen med ett felmeddelande som säger att städningen ska köras om.  
-
 3. Verifiera setupen med testerna:
    `pytest -v`
 
 4. Hämta och städa data:
     `python -m src.data_cleaning`
+
+   Den städade filen sparas i `data/processed/` och följer inte med i Git.  
+   Kör kommandot igen efter varje ändring i städningen.  
+   Om filen är gammal stoppas inläsningen med ett felmeddelande som säger att städningen ska köras om.
 
 
 ## Avvikelser från projektplanen
