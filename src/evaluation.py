@@ -28,9 +28,9 @@ def evaluate_model(y_true, y_pred):
     """
 
     metrics = {
-        "Precision": precision_score(y_true, y_pred),
-        "Recall": recall_score(y_true, y_pred),
-        "F1-score": f1_score(y_true, y_pred)
+        "Precision": precision_score(y_true, y_pred, zero_division=0),
+        "Recall": recall_score(y_true, y_pred, zero_division=0),
+        "F1-score": f1_score(y_true, y_pred, zero_division=0)
     }
 
     return metrics
@@ -222,13 +222,13 @@ def plot_pr_curve(y_true, predictions):
 
     Args:
         y_true: Facit (0 = inte avbokad, 1 = avbokad).
-        predictions: Dictionary med modellnamn och sannolikheter för klass 1.
+        predictions: Dictionary med modellnamn och riskpoäng t.ex. sannolikheter eller lead_time.
 
     Returns:
         dict: PR-AUC (Average Precision) per modell.
     """
     results = {}
-    fig = plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(8, 6))
 
     # Slumpnivå: andelen faktiska avbokningar i datan
     baseline = np.mean(y_true)
@@ -302,8 +302,9 @@ def evaluate_top_share(
         share: Andel bokningar som ska flaggas (standard 20 %).
 
     Returns:
-        dict: Antal bokningar, antal flaggade, korrekt flaggade
-              samt precision, recall och F1-score.
+        dict: Antal bokningar, antal flaggade, korrekt flaggade samt
+            precision, recall, F1-score och PR-AUC
+            (Average Precision över hela rangordningen).
     """
 
     # Flagga de bokningar som har högst riskpoäng.
@@ -321,6 +322,7 @@ def evaluate_top_share(
         "precision": metrics["Precision"],
         "recall": metrics["Recall"],
         "f1_score": metrics["F1-score"],
+        "pr_auc": average_precision_score(y_true, scores)
     }
 
     return results

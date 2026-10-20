@@ -27,6 +27,7 @@ def test_log_experiment_creates_file_and_logs_row(temp_output_dir: Path):
         "precision": 0.75123,
         "recall": 0.60456,
         "f1_score": 0.67001,
+        "pr_auc": 0.81234,
         "antal_flaggade": 100,
         "korrekt_flaggade": 75,
     }
@@ -49,6 +50,7 @@ def test_log_experiment_creates_file_and_logs_row(temp_output_dir: Path):
     assert df_read.iloc[0]["model"] == "TestModel"
     assert df_read.iloc[0]["precision_at_20"] == 0.7512  
     assert df_read.iloc[0]["recall_at_20"] == 0.6046
+    assert df_read.iloc[0]["pr_auc"] == pytest.approx(0.8123)
 
 
 def test_log_experiment_appends_row_without_overwriting(temp_output_dir: Path):
@@ -115,3 +117,32 @@ def test_save_plot_creates_file(temp_output_dir: Path):
     assert saved_path.exists()
     assert saved_path.name == "test_curve.png"
     assert figures_dir.exists()
+
+
+
+def test_log_experiment_handles_old_csv(temp_output_dir):
+    csv_file = temp_output_dir / "experiment_results.csv"
+
+    # Skapa en gammal logg som saknar pr_auc.
+    pd.DataFrame([{
+        "model": "OldModel",
+        "recall_at_20": 0.40,
+        "notes": "Tidigare körning",
+    }]).to_csv(csv_file, index=False)
+
+    # Lägg till en ny körning med pr_auc.
+    log_experiment(
+        model_name="NewModel",
+        feature_set="test",
+        metrics={"recall": 0.50, "pr_auc": 0.81234},
+        filepath=csv_file
+    )
+
+    saved = pd.read_csv(csv_file)
+
+    assert len(saved) == 2
+    assert saved.iloc[0]["model"] == "OldModel"
+    assert saved.iloc[0]["notes"] == "Tidigare körning"
+    assert pd.isna(saved.iloc[0]["pr_auc"])
+    assert saved.iloc[1]["model"] == "NewModel"
+    assert saved.iloc[1]["pr_auc"] == pytest.approx(0.8123)

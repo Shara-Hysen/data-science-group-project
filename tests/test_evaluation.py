@@ -59,6 +59,7 @@ def test_evaluate_top_share():
     assert results["korrekt_flaggade"] == 1
     assert results["precision"] == 1.0
     assert results["recall"] == pytest.approx(1 / 3)
+    assert results["pr_auc"] == pytest.approx(11 / 12)
 
 
 def test_plot_pr_curve():
@@ -87,3 +88,17 @@ def test_plot_pr_curve():
 
     # Modell A har nu garanterat bättre separation och högre PR-AUC än Modell B
     assert results["Modell A"]["pr_auc"] > results["Modell B"]["pr_auc"]
+
+
+
+@pytest.mark.filterwarnings("error")
+def test_evaluate_top_share_without_flags():
+    y_true = np.array([0, 1, 1])
+    scores = np.array([10, 20, 30])
+
+    results = evaluate_top_share(y_true, scores, share=0)
+
+    assert results["antal_flaggade"] == 0
+    assert results["precision"] == 0.0
+    assert results["recall"] == 0.0
+    assert results["f1_score"] == 0.0
