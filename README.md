@@ -264,7 +264,7 @@ Kontrollanalyserna görs med Random Forest och samma inställningar som huvudmod
 | Variant | Precision | Recall |
 |---|---|---|
 | Huvudmodell (med `deposit_type`) | 66,90 % | 37,94 % |
-| Utan `deposit_type` | | |
+| Utan `deposit_type` | 64,62 % | 36,64 % |
 | Med misstänkta läckagevariabler | 67,67 % | 38,37 % |
 
 **Misstänkta läckagevariabler.** Jämförelsemodellen innehåller även antal gäster, antal nätter, måltider och land, som enligt Antonio m.fl. (2019) ofta ändras vid incheckningen. Den uppnådde något högre precision och recall, men förbättringen var liten. Resultatet ger därför inget tydligt stöd för ett omfattande dataläckage, men kan inte heller utesluta att läckage förekommer.
@@ -300,8 +300,6 @@ Till exempel att ändringshistoriken saknas, att `deposit_type` kan bygga på be
 - Beslutsträd prövades inte av tidsskäl.
 
 ## 11. Hur generativ AI har använts
-
-## 12. Licens
 
 ## 12. Licens
 
