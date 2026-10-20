@@ -1,48 +1,113 @@
 # Hotel Booking Demand - ML Project
 
-## Kom igång
+## 1. Projektets problem och syfte
 
-1. Skapa och aktivera virtuell miljö:
+Avbokningar gör att hotellrum står tomma. Hotell överbokar därför, men överbokar de för mycket får gäster inget rum.  
+Syftet är att undersöka om det går att förutsäga vilka bokningar som kommer att avbokas, utifrån uppgifter om bokningen och gästen. 
+
+## 2. Tänkt användare eller målgrupp
+
+Intäkts- eller bokningsansvarig på ett hotell, som vill veta hur många bokningar som sannolikt avbokas och vilka gäster det kan löna sig att kontakta, till exempel med en påminnelse eller ett erbjudande om att bekräfta. 
+
+## 3. Gruppmedlemmar
+
+- Malin Moisander 
+- Shara Hysen 
+- Josefin Oleryd 
+- Alma Vasell 
+- Jack Olofsson 
+
+## 4. Datakälla
+
+**Källa och ansvar.** Datan publicerades av Nuno Antonio, Ana de Almeida och Luis Nunes (ISCTE-IUL) tillsammans med artikeln, och hämtas från Kaggle (`jessemostipak/hotel-booking-demand`), där artikelns två filer är sammanslagna till en.
+
+**Användningsvillkor.** CC BY 4.0: datan får användas och delas om källan anges.
+
+**Hämtning.** Datan hämtas automatiskt med kagglehub när `python -m src.data_cleaning` körs. Den hämtades första gången 1 oktober 2026.
+
+**Begränsningar.**
+- Bara två hotell i Portugal, ett semesterhotell och ett stadshotell, under 2015–2017, så resultaten kan inte direkt överföras till andra hotell eller perioder.
+- Värdena visar bokningen dagen före ankomst, inte vid bokningstillfället, och ändringshistoriken saknas.
+- Boknings-ID saknas, så identiska rader går inte att skilja åt.
+- Ej återbetalningsbara bokningar beter sig som gruppblock från resebyråer och avbokas i 99 % av fallen.
+
+**Hur datan ser ut.** 119 390 bokningar med ankomst juli 2015 – augusti 2017, 32 kolumner och målvariabeln is_canceled (avbokad eller inte).  
+Variablerna beskriver:  
+- Bokningen: dagar mellan bokning och ankomst, ankomstdatum, antal nätter, rumstyp, pris per natt, depositionstyp 
+- Gästen: antal vuxna och barn, land, kundtyp, återkommande gäst, tidigare avbokningar 
+- Kanal: marknadssegment, distributionskanal, resebyrå eller företag 
+- Önskemål: specialönskemål, parkeringsplats, måltider 
+
+## 5. Projektstruktur
+
+```
+data-science-group-project/
+├── data/
+│   └── processed/                           # Städad data, skapas med python -m src.data_cleaning (finns inte i Git)
+├── docs/
+│   └── motesprotokoll/                      # Mötesanteckningar från gruppens avstämningar
+├── notebooks/
+│   ├── 01_eda.ipynb                         # Explorativ dataanalys och motivering av städning och uppdelning
+│   ├── 02_demonstration.ipynb               # Slutlig utvärdering på testdatan och felanalys
+│   ├── 03_baseline.ipynb                    # Baseline: rangordning efter lead_time
+│   ├── 04_logistic_regression_demo.ipynb    # Logistisk regression på valideringsdatan
+│   └── 05_random_forest.ipynb               # Random Forest, val av inställningar och kontrollanalyser
+├── outputs/
+│   ├── figures/                             # Sparade figurer
+│   └── experiment_results.csv               # Logg över modellkörningar
+├── src/
+│   ├── config.py                            # Gemensam konfiguration och loggning
+│   ├── data_loader.py                       # Hämtar rådata via kagglehub
+│   ├── data_cleaning.py                     # Städning och validering av data (Pandera)
+│   ├── data_split.py                        # Kronologisk uppdelning i träning, validering och test
+│   ├── preprocessing.py                     # Val av features, kodning och skalning
+│   ├── logistic_regression.py               # Träning av logistisk regression
+│   ├── random_forest.py                     # Träning av Random Forest och feature importance
+│   ├── prediction.py                        # Gemensamma funktioner för förutsägelser
+│   ├── evaluation.py                        # Utvärdering vid 20 % flaggade, PR- och ROC-kurvor, förväxlingsmatriser
+│   └── experiment_logger.py                 # Loggning av körningar och sparande av figurer
+├── tests/                                   # Automatiska tester för modulerna i src/ (körs med pytest -v)
+├── pytest.ini
+├── requirements.txt
+└── README.md
+```
+
+Logiken ligger i `src/`, och notebookarna anropar funktionerna där. Flödet är:
+
+`data_loader` → `data_cleaning` → `data_split` → `preprocessing` → modell → `evaluation`
+
+## 6. Installation
+
+1. Klona repot och gå in i mappen:
+   `git clone <url>`
+   `cd data-science-group-project`
+
+2. Skapa och aktivera virtuell miljö:
    `python -m venv .venv`
-   `.venv\Scripts\activate` (Windows) eller `source .venv/bin/activate` (Mac/Linux)
+   `.venv\Scripts\activate` (Windows, kommandotolken), `source .venv/Scripts/activate` (Windows, Git Bash) eller `source .venv/bin/activate` (Mac/Linux)
 
-2. Installera beroenden:
+3. Installera beroenden:
    `pip install -r requirements.txt`
 
+## 7. Hur projektet körs
+
+1. Hämta och städa data: `python -m src.data_cleaning`  
    Den städade filen sparas i `data/processed/` och följer inte med i Git.  
    Kör kommandot igen efter varje ändring i städningen.  
    Om filen är gammal stoppas inläsningen med ett felmeddelande som säger att städningen ska köras om.  
 
-3. Verifiera setupen med testerna:
-   `pytest -v`
+2. Kontrollera uppdelningen: `python -m src.data_split`  
 
-4. Hämta och städa data:
-    `python -m src.data_cleaning`
+3. Kör notebookarna i ordning:
+   - `01_eda.ipynb`: analys av datan och motivering av besluten
+   - `03_baseline.ipynb`, `04_logistic_regression_demo.ipynb`, `05_random_forest.ipynb`: modellerna på valideringsdatan
+   - `02_demonstration.ipynb`: slutlig utvärdering på testdatan och felanalys  
 
+4. Kör testerna: `pytest -v`
 
-## Avvikelser från projektplanen
+Notebookarna ska köras från projektets rotmapp, eller med `.venv` vald som kärna i VS Code.
 
-**Tidsuppdelning**
-- Uppdelningen görs efter bokningsdatum i stället för ankomstdatum, efter feedback. Träningsdata vid en prognostidpunkt består av bokningar med ankomst före den, eftersom utfallet är känt senast vid ankomsten. Utvärderingsdata består av bokningar gjorda efter prognostidpunkten.
-- Perioderna har därför ändrats. Planen hade test på ankomster januari–augusti 2017. Nu valideras modellerna på bokningar gjorda juli–september 2016 och testas på bokningar gjorda oktober–december 2016. Bokningar gjorda från 2017 används inte, eftersom bokningar med lång ledtid saknas för den perioden.
-- Bokningar gjorda före juli 2015 tas bort i städningen. De är ofullständiga, eftersom bara bokningar med lång ledtid finns med, och innehåller en avvikande topp hösten 2014.
-
-**Depositionstyp**
-- Ej återbetalningsbara bokningar (Non Refund) behålls, eftersom de är en del av hotellens bokningar, trots att de beter sig som gruppblock från resebyråer.
-- `deposit_type` ingår i huvudmodellen, och en vald modell körs även utan den som jämförelse. Planen hade den omvända ordningen.
-
-**Baseline**
-- Vanligaste klassen används inte som baseline. Den förutsäger att ingen bokning avbokas, vilket ger 63 % rätt men hittar ingen avbokning, och den kan inte rangordna bokningar.
-- Lead time-regeln används som rangordning (de 20 % bokningar med längst ledtid flaggas) i stället för en fast gräns på 90 dagar. Då flaggar baseline och modeller exakt lika många bokningar, och ingen gräns behöver väljas utifrån EDA på hela datan.
-
-**Dubbletter**
-- Ingen separat analys utan dubbletter görs. Identiska rader har samma bokningsdatum och hamnar därför alltid i samma delmängd, så risken att samma bokning finns i både träning och test är redan hanterad.
-
-**Modeller**
-- Beslutsträd prövades inte av tidsskäl.
-
-
-## Initiala beslut baserade på observationer i EDA (`01_eda.ipynb`)
+## 7b. Datahantering och metodval
 
 ### Städning av data (`src/data_cleaning.py`)
 
@@ -91,13 +156,14 @@ Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärd
 - `agent`
 - `company`
 - `reserved_room_type`
+- `deposit_type`
 
 **Feature som behöver kontrollanalys:**
 
 `deposit_type` visar ett extremt mönster för `Non Refund`: 99,36 % avbokas och 92,88 % av raderna är identiska. Samma agenter har 14–51 % avbokningar för sina övriga bokningar, så mönstret beror på depositionstypen. Variabeln är beräknad från betalningar fram till ankomst eller avbokning och var därför inte nödvändigtvis känd vid bokningstillfället.  
-Den ingår i huvudmodellen, och modellerna körs även utan den som jämförelse (`include_deposit_type=False`).
+Den ingår i huvudmodellen, och Random Forest körs även utan den som jämförelse (`include_deposit_type=False`).
 
-**Följande features används inte, eftersom de beskriver utfallet eller kan ha ändrats efter bokningen (se Antonio m.fl., 2019, och EDA:n):**
+**Följande features används inte i huvudmodellen, eftersom de beskriver utfallet eller kan ha ändrats efter bokningen (se Antonio m.fl., 2019, och EDA:n):**
 
 - `reservation_status` och `reservation_status_date`
 - `assigned_room_type`
@@ -111,13 +177,12 @@ Den ingår i huvudmodellen, och modellerna körs även utan den som jämförelse
 - `total_of_special_requests`
 - `required_car_parking_spaces`
 
-**Bearbetning:**
+**Feature engineering och kodning:**
 - `company` görs om till 0/1 (bokad via företag eller inte).
 - `agent` behandlas som kategori. Agenter med färre än 50 bokningar i träningsdatan, och agenter som inte finns i träningsdatan, slås ihop till en gemensam kategori. Det minskar antalet agentkategorier från 210 till 72, medan cirka 5 % av bokningarna hamnar i den gemensamma kategorin.
 - Numeriska variabler standardiseras och kategoriska one-hot-kodas. Preprocessorn anpassas endast på träningsdata.
 
-
-## Modeller
+## 8. Modeller
 
 Vi använder en enkel regelbaserad baseline som jämförelse mot våra maskininlärningsmodeller.  
 Syftet är att undersöka om ML-modellerna kan identifiera fler avbokningar än en enkel regel.
@@ -133,7 +198,7 @@ Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst r
 Baselinen använder `lead_time`, alltså antalet dagar mellan bokning och planerad ankomst, som riskmått. Vi antar att bokningar med längre `lead_time` har högre risk att avbokas.  
 Baselinen tränas inte och använder inte information om faktiska avbokningar när den väljer vilka bokningar som ska flaggas.
 
-### Logistic Regression `notebooks/04_ligistic_regression_demo.ipynb`
+### Logistic Regression `notebooks/04_logistic_regression_demo.ipynb`
 
 Logistisk regression beräknar sannolikheten för avbokning som en viktad summa av variablerna. Modellen är enkel och lätt att tolka: varje variabel får en koefficient som visar om den ökar eller minskar risken för avbokning, vilket gör det möjligt för hotellet att förstå varför en bokning flaggas.
 
@@ -148,17 +213,34 @@ En begränsning är att modellen bara fångar samband där risken ökar eller mi
 Random Forest består av många beslutsträd, där varje träd tränas på ett slumpmässigt urval av bokningar och variabler. Sannolikheten för avbokning är medelvärdet av trädens förutsägelser. Modellen kan fånga samband som inte är linjära och samspel mellan variabler, till exempel att lång ledtid betyder olika mycket för olika marknadssegment.
 
 - Använder samma preprocessing som logistisk regression.
-- Tränas med `n_estimators=100` och `max_depth=15`. `min_samples_leaf` valdes till 10 genom att jämföra flera värden på valideringsdatan (se `notebooks/random_forest.ipynb`).
+- Tränas med `n_estimators=100` och `max_depth=15`. `min_samples_leaf` valdes till 10 genom att jämföra flera värden på valideringsdatan (se `notebooks/05_random_forest.ipynb`).
 - Bokningarna rangordnas efter den förutsagda sannolikheten, och de 20 % med högst sannolikhet flaggas.
-- Körs både med och utan `deposit_type`.
+- Körs både med och utan `deposit_type`.  
 
 Modellen är svårare att tolka än logistisk regression. Feature importance visar vilka variabler träden använder mest, men måttet räknas på träningsdatan och kan överskatta variabler med många möjliga värden, som `lead_time`. One-hot-kodade variabler som `agent` delas dessutom upp på många kolumner, vilket kan göra att de ser mindre viktiga ut än de är.
 
-## Bokningar med och utan registrerade ändringar `notebooks/demonstration.ipynb`
+## 9. Resultat och slutsatser (`notebooks/02_demonstration.ipynb`)
 
-För att undersöka hur modellerna presterar för bokningar med respektive utan registrerade ändringar delades valideringsdatan upp utifrån `booking_changes`.
+Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst riskpoäng. Slutresultaten gäller testdatan (bokningar gjorda oktober–december 2016), med modellerna tränade på `train_full`.
 
-De 20 % av bokningarna med högst förutsagd avbokningsrisk flaggades i hela valideringsdatan. Därefter beräknades precision och recall separat för de två grupperna.
+> **Preliminärt:** Tabellerna nedan visar just nu resultat på valideringsdatan och ersätts med testresultaten.
+
+### Jämförelse av modellerna
+
+| Modell | Precision | Recall | PR-AUC |
+|---|---|---|---|
+| Slumpmässig flaggning | | | |
+| Baseline (lead time) | | | |
+| Logistic Regression | | | |
+| Random Forest | | | |
+
+[PR-kurva med alla modeller]
+
+[Kommentar: vilken modell fungerar bäst, och hur mycket bättre än baselinen?]
+
+### Felanalys
+
+**Bokningar med och utan registrerade ändringar.** De 20 % bokningar med högst risk flaggades i hela datan, och precision och recall beräknades därefter separat för bokningar med och utan registrerade ändringar (`booking_changes`).
 
 | Modell | Grupp | Precision | Recall |
 |---|---|---|---|
@@ -169,40 +251,60 @@ De 20 % av bokningarna med högst förutsagd avbokningsrisk flaggades i hela val
 | Random Forest | Utan ändringar | 69,41 % | 37,55 % |
 | Random Forest | Med ändringar | 51,24 % | 41,56 % |
 
+Random Forest hade högst precision och recall i båda grupperna. Alla modeller, även baselinen, hade lägre precision för bokningar med registrerade ändringar, medan recall var något högre. Att mönstret gäller alla tre tyder på att det beror på skillnader mellan grupperna, till exempel i avbokningsandel och ledtid, snarare än på en enskild modell. Jämförelsen kan inte avgöra om dataläckage förekommer, eftersom de ursprungliga värdena före ändringarna saknas.
 
-## Jämförelsemodell med misstänkta läckagevariabler `notebooks/demonstration.ipynb`
+**Per hotell.** [Tabell och kommentar]
 
-För att undersöka om misstänkta läckagevariabler påverkar modellens prestanda tränades en extra Random Forest-modell med `include_suspected_leakage=True`. Modellen använde samma tränings- och valideringsdata samt hyperparametrar som huvudmodellen.
+**Felaktiga flaggningar och missade avbokningar.** [Förväxlingsmatris och kommentar: vad onödig uppföljning respektive missade avbokningar betyder för hotellet]
 
-| Modell | Precision top 20 % | Recall top 20 % |
+### Kontrollanalyser (`notebooks/05_random_forest.ipynb`)
+
+Kontrollanalyserna görs med Random Forest och samma inställningar som huvudmodellen.
+
+| Variant | Precision | Recall |
 |---|---|---|
-| Huvudmodell | 66,90 % | 37,94 % |
+| Huvudmodell (med `deposit_type`) | 66,90 % | 37,94 % |
+| Utan `deposit_type` | | |
 | Med misstänkta läckagevariabler | 67,67 % | 38,37 % |
 
-Jämförelsemodellen uppnådde något högre precision och recall, men förbättringen var liten. Resultatet ger därför inget tydligt stöd för ett omfattande dataläckage, men kan inte heller utesluta att läckage förekommer.
+**Misstänkta läckagevariabler.** Jämförelsemodellen innehåller även antal gäster, antal nätter, måltider och land, som enligt Antonio m.fl. (2019) ofta ändras vid incheckningen. Den uppnådde något högre precision och recall, men förbättringen var liten. Resultatet ger därför inget tydligt stöd för ett omfattande dataläckage, men kan inte heller utesluta att läckage förekommer.
 
-
-## Resultat och slutsatser (`notebooks/demonstration.ipynb`)
-
-### Jämförelse av modellerna
-Tabell med slump, baseline, LR och RF vid 20 % flaggade på testdatan: precision, recall och PR-AUC. PR-kurvan.
-
-### Felanalys
-
-**Bokningar med och utan registrerade ändringar.** De 20 % bokningar med högst risk flaggades i hela datan, och precision och recall beräknades därefter för varje grupp.
-
-[tabell]
-
-Random Forest hade högst precision och recall i båda grupperna. Alla modeller, även baselinen, hade lägre precision för bokningar med registrerade ändringar, medan recall var något högre.  
-Att mönstret gäller alla tre tyder på att det beror på skillnader mellan grupperna, till exempel i avbokningsandel och ledtid, snarare än på en enskild modell.
-
-Jämförelsen kan inte avgöra om dataläckage förekommer, eftersom de ursprungliga värdena före ändringarna saknas.
-
-### Kontrollanalyser
-Med och utan `deposit_type`, och med misstänkta läckagevariabler.
-
-### Begränsningar
-Till exempel att ändringshistoriken saknas, att `deposit_type` kan bygga på betalningar efter bokningen, och att testperioden bara omfattar oktober–december 2016.
+**`deposit_type`.** [Kommentar. Valideringsdatan har bara cirka 2 % ej återbetalningsbara bokningar och testdatan cirka 14 %, så skillnaden syns troligen tydligast på testdatan.]
 
 ### Slutsats
-Några meningar: slår modellerna baselinen tydligt nog för att hotellet ska ha nytta av dem?
+
+[Några meningar som svarar på planens kriterium: hittar hotellet klart fler avbokningar med modellen än med regeln om bokningar långt i förväg, när det granskar 20 % av bokningarna? Vilken modell rekommenderas, och vad stöder resultaten inte?]
+
+## 10. Begränsningar
+Till exempel att ändringshistoriken saknas, att `deposit_type` kan bygga på betalningar efter bokningen, och att testperioden bara omfattar oktober–december 2016.
+
+## 10b. Avvikelser från projektplanen
+
+**Tidsuppdelning**
+- Uppdelningen görs efter bokningsdatum i stället för ankomstdatum, efter feedback. Träningsdata vid en prognostidpunkt består av bokningar med ankomst före den, eftersom utfallet är känt senast vid ankomsten. Utvärderingsdata består av bokningar gjorda efter prognostidpunkten.
+- Perioderna har därför ändrats. Planen hade test på ankomster januari–augusti 2017. Nu valideras modellerna på bokningar gjorda juli–september 2016 och testas på bokningar gjorda oktober–december 2016. Bokningar gjorda från 2017 används inte, eftersom bokningar med lång ledtid saknas för den perioden.
+- Bokningar gjorda före juli 2015 tas bort i städningen. De är ofullständiga, eftersom bara bokningar med lång ledtid finns med, och innehåller en avvikande topp hösten 2014.
+
+**Depositionstyp**
+- Ej återbetalningsbara bokningar (Non Refund) behålls, eftersom de är en del av hotellens bokningar, trots att de beter sig som gruppblock från resebyråer.
+- `deposit_type` ingår i huvudmodellen, och Random Forest körs även utan den som jämförelse (`include_deposit_type=False`). Planen hade den omvända ordningen.
+
+**Baseline**
+- Vanligaste klassen används inte som baseline. Den förutsäger att ingen bokning avbokas, vilket ger 63 % rätt men hittar ingen avbokning, och den kan inte rangordna bokningar.
+- Lead time-regeln används som rangordning (de 20 % bokningar med längst ledtid flaggas) i stället för en fast gräns på 90 dagar. Då flaggar baseline och modeller exakt lika många bokningar, och ingen gräns behöver väljas utifrån EDA på hela datan.
+
+**Dubbletter**
+- Ingen separat analys utan dubbletter görs. Identiska rader har samma bokningsdatum och hamnar därför alltid i samma delmängd, så risken att samma bokning finns i både träning och test är redan hanterad.
+
+**Modeller**
+- Beslutsträd prövades inte av tidsskäl.
+
+## 11. Hur generativ AI har använts
+
+## 12. Licens
+
+## 12. Licens
+
+**Data:** Hotel Booking Demand (Antonio, de Almeida & Nunes, 2019) används under CC BY 4.0.
+
+**Kod:** Koden är skriven som ett kursprojekt. [Ange licens, till exempel MIT, eller att ingen licens gäller och att koden inte får återanvändas utan tillstånd.]
