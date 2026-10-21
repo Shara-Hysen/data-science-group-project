@@ -259,24 +259,45 @@ Random Forest hade högst precision och recall i båda grupperna. Alla modeller,
 
 ### Kontrollanalyser (`notebooks/05_random_forest.ipynb`)
 
-Kontrollanalyserna görs med Random Forest och samma inställningar som huvudmodellen.
+Kontrollanalyserna genomfördes med Random Forest på samma tränings- och valideringsdata och med samma hyperparametrar: `n_estimators=100`, `max_depth=15`, `min_samples_leaf=10` och `random_state=42`.
 
-| Variant | Precision | Recall |
-|---|---|---|
-| Huvudmodell (med `deposit_type`) | 66,90 % | 37,94 % |
-| Utan `deposit_type` | 64,62 % | 36,64 % |
-| Med misstänkta läckagevariabler | 67,67 % | 38,37 % |
+Modellerna utvärderades genom att flagga de 20 % av bokningarna som hade högst förutsagd avbokningsrisk.
 
-**Misstänkta läckagevariabler.** Jämförelsemodellen innehåller även antal gäster, antal nätter, måltider och land, som enligt Antonio m.fl. (2019) ofta ändras vid incheckningen. Den uppnådde något högre precision och recall, men förbättringen var liten. Resultatet ger därför inget tydligt stöd för ett omfattande dataläckage, men kan inte heller utesluta att läckage förekommer.
+| Variant | Precision@20 | Recall@20 | PR-AUC |
+|---|---:|---:|---:|
+| Huvudmodell (med `deposit_type`) | 67,37 % | 38,20 % | 0,6162 |
+| Utan `deposit_type` | 64,06 % | 36,33 % | 0,5889 |
+| Med misstänkta läckagevariabler | 68,48 % | 38,84 % | 0,6646 |
 
-**`deposit_type`.** [Kommentar. Valideringsdatan har bara cirka 2 % ej återbetalningsbara bokningar och testdatan cirka 14 %, så skillnaden syns troligen tydligast på testdatan.]
+**Misstänkta läckagevariabler.** Jämförelsemodellen inkluderade sju ytterligare variabler: `adults`, `children`, `babies`, `stays_in_weekend_nights`, `stays_in_week_nights`, `meal` och `country`. Precision@20 ökade med cirka 1,12 procentenheter och recall@20 med 0,63 procentenheter jämfört med huvudmodellen. PR-AUC ökade från 0,6162 till 0,6646.
+
+Förbättringen visar att de extra variablerna bidrar med information på valideringsdatan. Eftersom vissa värden kan ha uppdaterats efter bokningstillfället finns dock en risk för dataläckage. Jämförelsen bevisar inte att läckage förekommer.
+
+**`deposit_type`.** När `deposit_type` exkluderades sjönk precision@20 från 67,37 % till 64,06 %, recall@20 från 38,20 % till 36,33 % och PR-AUC från 0,6162 till 0,5889.
+
+Variabeln förbättrar alltså modellens valideringsresultat, men kan bygga på betalningsinformation som inte var tillgänglig vid bokningstillfället. Dessutom innehåller valideringsperioden få ej återbetalningsbara bokningar, vilket begränsar hur säkert vi kan bedöma variabelns effekt.
+
+**Felanalys för `booking_changes`.** De 20 % mest riskfyllda bokningarna flaggades först i hela valideringsdatan. Därefter jämfördes resultaten mellan bokningar med och utan registrerade ändringar.
+
+| Grupp | Antal bokningar | Precision@20 | Recall@20 |
+|---|---:|---:|---:|
+| Utan ändringar | 9 790 | 70,42 % | 37,74 % |
+| Med ändringar | 1 853 | 49,56 % | 42,57 % |
+
+Precisionen var lägre för bokningar med registrerade ändringar, medan recall var något högre. Skillnaderna bör tolkas försiktigt eftersom grupperna har olika avbokningsandelar och storlek. `booking_changes` används endast för efterhandsanalys och inte som en feature i huvudmodellen, eftersom ändringar kan ha registrerats efter bokningstillfället.
 
 ### Slutsats
 
 [Några meningar som svarar på planens kriterium: hittar hotellet klart fler avbokningar med modellen än med regeln om bokningar långt i förväg, när det granskar 20 % av bokningarna? Vilken modell rekommenderas, och vad stöder resultaten inte?]
 
 ## 10. Begränsningar
-Till exempel att ändringshistoriken saknas, att `deposit_type` kan bygga på betalningar efter bokningen, och att testperioden bara omfattar oktober–december 2016.
+Resultaten har flera begränsningar. Datasetet saknar fullständig historik över när bokningsuppgifter ändrades. Därför går det inte alltid att avgöra om en variabel hade sitt aktuella värde redan vid bokningstillfället. Det gäller bland annat `deposit_type`, som kan påverkas av betalningsinformation efter bokningen, samt uppgifter om gäster, vistelselängd, måltider och land.
+
+Kontrollanalysen med misstänkta läckagevariabler visar bättre valideringsresultat, men kan varken bekräfta eller utesluta dataläckage. För att säkert bedöma detta skulle vi behöva tidsstämplar eller historiska versioner av bokningsuppgifterna.
+
+Felanalysen visar också att modellens precision skiljer sig mellan bokningar med och utan registrerade ändringar. Eftersom grupperna har olika storlek och avbokningsandel bör resultaten inte tolkas som att ändringarna i sig orsakar skillnaden.
+
+Slutligen omfattar testperioden endast bokningar gjorda oktober–december 2016. Resultaten behöver därför inte vara representativa för andra perioder eller hotell. Skillnaden i fördelningen av `deposit_type` mellan validerings- och testperioden är ytterligare en osäkerhetsfaktor.
 
 ## 10b. Avvikelser från projektplanen
 
