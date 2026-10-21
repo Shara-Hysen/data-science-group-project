@@ -150,18 +150,16 @@ Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärd
 - `hotel`
 - `arrival_date_month`
 - `market_segment`
-- `distribution_channel`
 - `customer_type`
 - `is_repeated_guest`
 - `agent`
 - `company`
 - `reserved_room_type`
-- `deposit_type`
 
-**Feature som behöver kontrollanalys:**
+**Feature som prövas i en kontrollanalys:**
 
-`deposit_type` visar ett extremt mönster för `Non Refund`: 99,36 % avbokas och 92,88 % av raderna är identiska. Samma agenter har 14–51 % avbokningar för sina övriga bokningar, så mönstret beror på depositionstypen. Variabeln är beräknad från betalningar fram till ankomst eller avbokning och var därför inte nödvändigtvis känd vid bokningstillfället.  
-Den ingår i huvudmodellen, och Random Forest körs även utan den som jämförelse (`include_deposit_type=False`).
+`deposit_type` visar ett extremt mönster för `Non Refund`: 99,36 % avbokas och 92,88 % av raderna är identiska. Samma agenter har 14–51 % avbokningar för sina övriga bokningar, så mönstret beror på depositionstypen. Variabeln är beräknad från betalningar fram till ankomst eller avbokning och var därför inte nödvändigtvis känd vid bokningstillfället.
+Den ingår inte i huvudmodellen. Random Forest körs med den som jämförelse (`include_deposit_type=True`).
 
 **Följande features används inte i huvudmodellen, eftersom de beskriver utfallet eller kan ha ändrats efter bokningen (se Antonio m.fl., 2019, och EDA:n):**
 
@@ -176,6 +174,9 @@ Den ingår i huvudmodellen, och Random Forest körs även utan den som jämföre
 - `days_in_waiting_list`
 - `total_of_special_requests`
 - `required_car_parking_spaces`
+- `deposit_type`
+
+`distribution_channel` används inte heller, eftersom den innehåller nästan samma information som `market_segment`.
 
 **Feature engineering och kodning:**
 - `company` görs om till 0/1 (bokad via företag eller inte).
@@ -215,7 +216,7 @@ Random Forest består av många beslutsträd, där varje träd tränas på ett s
 - Använder samma preprocessing som logistisk regression.
 - Tränas med `n_estimators=100` och `max_depth=15`. `min_samples_leaf` valdes till 10 genom att jämföra flera värden på valideringsdatan (se `notebooks/05_random_forest.ipynb`).
 - Bokningarna rangordnas efter den förutsagda sannolikheten, och de 20 % med högst sannolikhet flaggas.
-- Körs både med och utan `deposit_type`.  
+- Körs även med `deposit_type` och med misstänkta läckagevariabler som kontrollanalyser.  
 
 Modellen är svårare att tolka än logistisk regression. Feature importance visar vilka variabler träden använder mest, men måttet räknas på träningsdatan och kan överskatta variabler med många möjliga värden, som `lead_time`. One-hot-kodade variabler som `agent` delas dessutom upp på många kolumner, vilket kan göra att de ser mindre viktiga ut än de är.
 
@@ -223,7 +224,7 @@ Modellen är svårare att tolka än logistisk regression. Feature importance vis
 
 Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst riskpoäng. Slutresultaten gäller testdatan (bokningar gjorda oktober–december 2016), med modellerna tränade på `train_full`.
 
-> **Preliminärt:** Tabellerna nedan visar just nu resultat på valideringsdatan och ersätts med testresultaten.
+> Fylls i när testutvärderingen i `notebooks/02_demonstration.ipynb` är klar.
 
 ### Jämförelse av modellerna
 
@@ -240,10 +241,12 @@ Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst r
 
 ### Felanalys
 
-**Bokningar med och utan registrerade ändringar.** De 20 % bokningar med högst risk flaggades i hela datan, och precision och recall beräknades därefter separat för bokningar med och utan registrerade ändringar (`booking_changes`).
+**Bokningar med och utan registrerade ändringar.** De 20 % bokningar med högst risk flaggades i hela valideringsdatan, och precision och recall beräknades därefter separat för bokningar med och utan registrerade ändringar (`booking_changes`). 9 790 bokningar saknar registrerade ändringar och 1 853 har minst en.
 
-| Modell | Grupp | Precision | Recall |
-|---|---|---|---|
+> Siffrorna nedan är preliminära, från valideringsdatan i en tidigare körning. De ersätts med testresultaten för de slutliga modellerna.
+
+| Modell | Grupp | Precision@20 | Recall@20 |
+|---|---|---:|---:|
 | Baseline | Utan ändringar | 59,45 % | 29,84 % |
 | Baseline | Med ändringar | 34,05 % | 40,05 % |
 | Logistic Regression | Utan ändringar | 66,00 % | 34,58 % |
@@ -251,7 +254,9 @@ Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst r
 | Random Forest | Utan ändringar | 69,41 % | 37,55 % |
 | Random Forest | Med ändringar | 51,24 % | 41,56 % |
 
-Random Forest hade högst precision och recall i båda grupperna. Alla modeller, även baselinen, hade lägre precision för bokningar med registrerade ändringar, medan recall var något högre. Att mönstret gäller alla tre tyder på att det beror på skillnader mellan grupperna, till exempel i avbokningsandel och ledtid, snarare än på en enskild modell. Jämförelsen kan inte avgöra om dataläckage förekommer, eftersom de ursprungliga värdena före ändringarna saknas.
+Random Forest hade högst precision och recall i båda grupperna. Alla modeller, även baselinen, hade lägre precision för bokningar med registrerade ändringar, medan recall var något högre. Att mönstret gäller alla tre tyder på att det beror på skillnader mellan grupperna, till exempel i avbokningsandel och ledtid, snarare än på en enskild modell. Skillnaderna bör tolkas försiktigt eftersom grupperna har olika storlek.
+
+Jämförelsen kan inte avgöra om dataläckage förekommer, eftersom de ursprungliga värdena före ändringarna saknas. `booking_changes` används endast för efterhandsanalys och inte som en feature, eftersom ändringar kan ha registrerats efter bokningstillfället.
 
 **Per hotell.** [Tabell och kommentar]
 
@@ -265,26 +270,13 @@ Modellerna utvärderades genom att flagga de 20 % av bokningarna som hade högst
 
 | Variant | Precision@20 | Recall@20 | PR-AUC |
 |---|---:|---:|---:|
-| Huvudmodell (med `deposit_type`) | 67,37 % | 38,20 % | 0,6162 |
-| Utan `deposit_type` | 64,06 % | 36,33 % | 0,5889 |
-| Med misstänkta läckagevariabler | 68,48 % | 38,84 % | 0,6646 |
+| Huvudmodell (utan `deposit_type`) | 65,05 % | 36,89 % | 0,5912 |
+| Med `deposit_type` | 64,15 % | 36,38 % | 0,6127 |
+| Med misstänkta läckagevariabler | 64,75 % | 36,72 % | 0,5913 |
 
-**Misstänkta läckagevariabler.** Jämförelsemodellen inkluderade sju ytterligare variabler: `adults`, `children`, `babies`, `stays_in_weekend_nights`, `stays_in_week_nights`, `meal` och `country`. Precision@20 ökade med cirka 1,12 procentenheter och recall@20 med 0,63 procentenheter jämfört med huvudmodellen. PR-AUC ökade från 0,6162 till 0,6646.
+**Misstänkta läckagevariabler.** Jämförelsemodellen inkluderade även `adults`, `children`, `babies`, `stays_in_weekend_nights`, `stays_in_week_nights`, `meal` och `country`. Variablerna förbättrar inte modellen: precision och recall är något lägre och PR-AUC i princip oförändrad. Resultatet visar inte att variablerna är fria från läckage, men eftersom de inte tillför något finns det inget skäl att ta med dem.
 
-Förbättringen visar att de extra variablerna bidrar med information på valideringsdatan. Eftersom vissa värden kan ha uppdaterats efter bokningstillfället finns dock en risk för dataläckage. Jämförelsen bevisar inte att läckage förekommer.
-
-**`deposit_type`.** När `deposit_type` exkluderades sjönk precision@20 från 67,37 % till 64,06 %, recall@20 från 38,20 % till 36,33 % och PR-AUC från 0,6162 till 0,5889.
-
-Variabeln förbättrar alltså modellens valideringsresultat, men kan bygga på betalningsinformation som inte var tillgänglig vid bokningstillfället. Dessutom innehåller valideringsperioden få ej återbetalningsbara bokningar, vilket begränsar hur säkert vi kan bedöma variabelns effekt.
-
-**Felanalys för `booking_changes`.** De 20 % mest riskfyllda bokningarna flaggades först i hela valideringsdatan. Därefter jämfördes resultaten mellan bokningar med och utan registrerade ändringar.
-
-| Grupp | Antal bokningar | Precision@20 | Recall@20 |
-|---|---:|---:|---:|
-| Utan ändringar | 9 790 | 70,42 % | 37,74 % |
-| Med ändringar | 1 853 | 49,56 % | 42,57 % |
-
-Precisionen var lägre för bokningar med registrerade ändringar, medan recall var något högre. Skillnaderna bör tolkas försiktigt eftersom grupperna har olika avbokningsandelar och storlek. `booking_changes` används endast för efterhandsanalys och inte som en feature i huvudmodellen, eftersom ändringar kan ha registrerats efter bokningstillfället.
+**`deposit_type`.** Vid 20 % flaggade bokningar hittar huvudmodellen 21 fler avbokningar än modellen med `deposit_type`: precisionen är 0,9 procentenheter högre och recall 0,5 procentenheter högre. PR-AUC är däremot 0,02 högre med `deposit_type`, så variabeln förbättrar rangordningen vid andra andelar flaggade bokningar än 20 %. Eftersom variabeln inte förbättrar resultatet vid 20 % och kan bygga på betalningsinformation efter bokningen, används den inte i huvudmodellen. Valideringsperioden innehåller dessutom få ej återbetalningsbara bokningar, vilket begränsar hur säkert effekten kan bedömas.
 
 ### Slutsats
 
@@ -293,7 +285,7 @@ Precisionen var lägre för bokningar med registrerade ändringar, medan recall 
 ## 10. Begränsningar
 Resultaten har flera begränsningar. Datasetet saknar fullständig historik över när bokningsuppgifter ändrades. Därför går det inte alltid att avgöra om en variabel hade sitt aktuella värde redan vid bokningstillfället. Det gäller bland annat `deposit_type`, som kan påverkas av betalningsinformation efter bokningen, samt uppgifter om gäster, vistelselängd, måltider och land.
 
-Kontrollanalysen med misstänkta läckagevariabler visar bättre valideringsresultat, men kan varken bekräfta eller utesluta dataläckage. För att säkert bedöma detta skulle vi behöva tidsstämplar eller historiska versioner av bokningsuppgifterna.
+Kontrollanalysen med misstänkta läckagevariabler visar ingen förbättring, men kan varken bekräfta eller utesluta dataläckage. För att säkert bedöma detta skulle vi behöva tidsstämplar eller historiska versioner av bokningsuppgifterna.
 
 Felanalysen visar också att modellens precision skiljer sig mellan bokningar med och utan registrerade ändringar. Eftersom grupperna har olika storlek och avbokningsandel bör resultaten inte tolkas som att ändringarna i sig orsakar skillnaden.
 
@@ -306,13 +298,13 @@ Slutligen omfattar testperioden endast bokningar gjorda oktober–december 2016.
 - Perioderna har därför ändrats. Planen hade test på ankomster januari–augusti 2017. Nu valideras modellerna på bokningar gjorda juli–september 2016 och testas på bokningar gjorda oktober–december 2016. Bokningar gjorda från 2017 används inte, eftersom bokningar med lång ledtid saknas för den perioden.
 - Bokningar gjorda före juli 2015 tas bort i städningen. De är ofullständiga, eftersom bara bokningar med lång ledtid finns med, och innehåller en avvikande topp hösten 2014.
 
-**Depositionstyp**
-- Ej återbetalningsbara bokningar (Non Refund) behålls, eftersom de är en del av hotellens bokningar, trots att de beter sig som gruppblock från resebyråer.
-- `deposit_type` ingår i huvudmodellen, och Random Forest körs även utan den som jämförelse (`include_deposit_type=False`). Planen hade den omvända ordningen.
-
 **Baseline**
 - Vanligaste klassen används inte som baseline. Den förutsäger att ingen bokning avbokas, vilket ger 63 % rätt men hittar ingen avbokning, och den kan inte rangordna bokningar.
 - Lead time-regeln används som rangordning (de 20 % bokningar med längst ledtid flaggas) i stället för en fast gräns på 90 dagar. Då flaggar baseline och modeller exakt lika många bokningar, och ingen gräns behöver väljas utifrån EDA på hela datan.
+
+**Features**
+- `distribution_channel` ingick i planens huvudmodell men togs bort, eftersom den innehåller nästan samma information som `market_segment`.
+- Jämförelserna med `deposit_type` och med misstänkta läckagevariabler görs bara med Random Forest.
 
 **Dubbletter**
 - Ingen separat analys utan dubbletter görs. Identiska rader har samma bokningsdatum och hamnar därför alltid i samma delmängd, så risken att samma bokning finns i både träning och test är redan hanterad.
