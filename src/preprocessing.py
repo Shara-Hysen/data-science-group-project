@@ -49,7 +49,6 @@ CATEGORICAL_FEATURES = [
     "hotel",
     "arrival_date_month",
     "market_segment",
-    "distribution_channel",
     "customer_type",
     "is_repeated_guest",
     "company",
