@@ -1,4 +1,17 @@
-timestamp,model,feature_set,dataset,precision_at_20,recall_at_20,f1_score,pr_auc,antal_flaggade,korrekt_flaggade,notes
+timestamp,model,feature_set,dataset,precision_at_20,recall_at_20,f1_score,antal_flaggade,korrekt_flaggade,notes,pr_auc
+2026-10-14 20:17,Random Forest,med deposit_type,val,0.6466,0.3667,0.468,2329,1506,"n_estimators=100, max_depth=15",
+2026-10-14 20:17,Random Forest,utan deposit_type,val,0.6385,0.3621,0.4621,2329,1487,"n_estimators=100, max_depth=15",
+2026-10-16 16:20,Random Forest,med deposit_type,val,0.6737,0.382,0.4876,2329,1569,"n_estimators=100, max_depth=15",
+2026-10-16 16:20,Random Forest,med deposit_type,val,0.6737,0.382,0.4876,2329,1569,"n_estimators=100, max_depth=15, min_samples_leaf=10",
+2026-10-16 16:22,Random Forest,utan deposit_type,val,0.6406,0.3633,0.4636,2329,1492,"n_estimators=100, max_depth=15, min_samples_leaf=10",
+2026-10-17 12:04,Random Forest,med deposit_type,val,0.669,0.3794,0.4842,2329,1558,"n_estimators=100, max_depth=15, min_samples_leaf=10",
+2026-10-17 12:04,Random Forest,utan deposit_type,val,0.6462,0.3664,0.4677,2329,1505,"n_estimators=100, max_depth=15, min_samples_leaf=10",
+2026-10-17 12:40,Random Forest,med deposit_type,val,0.669,0.3794,0.4842,2329,1558,"n_estimators=100, max_depth=15, min_samples_leaf=10",
+2026-10-17 12:40,Random Forest,utan deposit_type,val,0.6462,0.3664,0.4677,2329,1505,"n_estimators=100, max_depth=15, min_samples_leaf=10",
+2026-10-17 12:40,Random Forest,med misstänkta läckagevariabler,val,0.6767,0.3837,0.4897,2329,1576,"n_estimators=100, max_depth=15, min_samples_leaf=10",
+2026-10-20 15:55,Baseline,lead_time,val,0.5436,0.3083,0.3934,2329,1266,"Lead time-baseline, top 20 %, gemensam tidsbaserad validering.",0.5057
+2026-10-21 11:17,Logistic Regression,Med deposit_type,val,0.6157,0.3492,0.4456,2329,1434,40 414 träningsrader. Tidsbaserad validering. Top 20 %.,0.5983
+2026-10-21 11:17,Logistic Regression,Utan deposit_type,val,0.6166,0.3496,0.4462,2329,1436,40 414 träningsrader. Tidsbaserad validering. Top 20 %.,0.57
 2026-10-21 07:45,Random Forest,med deposit_type,val,0.6737,0.382,0.4876,0.6162,2329,1569,"n_estimators=100, max_depth=15, min_samples_leaf=10, antal_traning=40414"
 2026-10-21 07:45,Random Forest,utan deposit_type,val,0.6406,0.3633,0.4636,0.5889,2329,1492,"n_estimators=100, max_depth=15, min_samples_leaf=10, antal_traning=40414"
 2026-10-21 07:45,Random Forest,med misstänkta läckagevariabler,val,0.6848,0.3884,0.4956,0.6646,2329,1595,"n_estimators=100, max_depth=15, min_samples_leaf=10, antal_traning=40414"
