@@ -1,6 +1,7 @@
-timestamp,model,feature_set,dataset,precision_at_20,recall_at_20,f1_score,antal_flaggade,korrekt_flaggade,notes
-2026-10-14 20:17,Random Forest,med deposit_type,val,0.6466,0.3667,0.468,2329,1506,"n_estimators=100, max_depth=15"
-2026-10-14 20:17,Random Forest,utan deposit_type,val,0.6385,0.3621,0.4621,2329,1487,"n_estimators=100, max_depth=15"
-2026-10-16 16:20,Random Forest,med deposit_type,val,0.6737,0.382,0.4876,2329,1569,"n_estimators=100, max_depth=15"
-2026-10-16 16:20,Random Forest,med deposit_type,val,0.6737,0.382,0.4876,2329,1569,"n_estimators=100, max_depth=15, min_samples_leaf=10"
-2026-10-16 16:22,Random Forest,utan deposit_type,val,0.6406,0.3633,0.4636,2329,1492,"n_estimators=100, max_depth=15, min_samples_leaf=10"
+timestamp,model,feature_set,dataset,precision_at_20,recall_at_20,f1_score,pr_auc,antal_flaggade,korrekt_flaggade,notes
+2026-10-21 19:46,Baseline,lead_time,val,0.5436,0.3083,0.3934,0.5057,2329,1266,"Lead time-baseline, top 20 %, gemensam tidsbaserad validering."
+2026-10-21 19:47,Logistic Regression,Med deposit_type,val,0.623,0.3533,0.4509,0.6006,2329,1451,40 414 träningsrader. Tidsbaserad validering. Top 20 %.
+2026-10-21 19:47,Logistic Regression,Utan deposit_type,val,0.602,0.3414,0.4357,0.5772,2329,1402,40 414 träningsrader. Tidsbaserad validering. Top 20 %.
+2026-10-21 19:55,Random Forest,med deposit_type,val,0.6475,0.3672,0.4686,0.5913,2329,1508,"n_estimators=100, max_depth=15, min_samples_leaf=10, antal_traning=40414"
+2026-10-21 19:55,Random Forest,utan deposit_type,val,0.6724,0.3813,0.4866,0.6289,2329,1566,"n_estimators=100, max_depth=15, min_samples_leaf=10, antal_traning=40414"
+2026-10-21 19:55,Random Forest,med misstänkta läckagevariabler,val,0.6994,0.3966,0.5062,0.6632,2329,1629,"n_estimators=100, max_depth=15, min_samples_leaf=10, antal_traning=40414"

@@ -43,6 +43,7 @@ def log_experiment(
     path = Path(filepath)
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    pr_auc = metrics.get("pr_auc")
     # Bygg rad för CSV: .get() förhindrar KeyError om modellen saknar vissa mätvärden
     row = {
         "timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
@@ -52,6 +53,7 @@ def log_experiment(
         "precision_at_20": round(float(metrics.get("precision", 0.0)), 4),
         "recall_at_20": round(float(metrics.get("recall", 0.0)), 4),
         "f1_score": round(float(metrics.get("f1_score", 0.0)), 4),
+        "pr_auc": round(float(pr_auc), 4) if pr_auc is not None else None,
         "antal_flaggade": metrics.get("antal_flaggade", None),
         "korrekt_flaggade": metrics.get("korrekt_flaggade", None),
         "notes": notes
@@ -59,12 +61,17 @@ def log_experiment(
 
     df_row = pd.DataFrame([row])
 
-    if not path.exists():
-        df_row.to_csv(path, index=False)
-        logger.info("Skapade ny loggfil och registrerade: %s", path)
+    if path.exists():
+        previous_results = pd.read_csv(path)
+        results_to_save = pd.concat(
+            [previous_results, df_row],
+            ignore_index=True,
+        )
     else:
-        df_row.to_csv(path, mode="a", header=False, index=False)
-        logger.info("Registrerade experiment i: %s", path)
+        results_to_save = df_row
+
+    results_to_save.to_csv(path, index=False)
+    logger.info("Registrerade experiment i: %s", path)
 
     return df_row
 
