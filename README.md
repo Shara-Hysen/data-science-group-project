@@ -7,7 +7,7 @@ Syftet är att undersöka om det går att förutsäga vilka bokningar som kommer
 
 ## 2. Tänkt användare eller målgrupp
 
-Intäkts- eller bokningsansvarig på ett hotell, som vill veta hur många bokningar som sannolikt avbokas och vilka gäster det kan löna sig att kontakta, till exempel med en påminnelse eller ett erbjudande om att bekräfta. 
+Intäkts- eller bokningsansvarig på ett hotell, som vill veta hur många bokningar som sannolikt avbokas  för att planera eventuell överbokning eller vilka gäster det kan löna sig att kontakta, till exempel med en påminnelse eller ett erbjudande om att bekräfta. 
 
 ## 3. Gruppmedlemmar
 
@@ -111,8 +111,9 @@ Notebookarna ska köras från projektets rotmapp, eller med `.venv` vald som kä
 
 ### Städning av data (`src/data_cleaning.py`)
 
-- Saknade värden i kolumnerna `children`, `company`, `agent` sätts till noll och `country` till "Unknown".
-- Orimliga värden som noll gäster, negativt eller extremt högt värde för `adr` och Undefined i segment/kanal tas bort, totalt 187 rader
+- Saknade värden i kolumnerna `children`, `company` och `agent` sätts till noll. För `company` och `agent` betyder det att bokningarna inte är gjorda av ett företag respektive av en resebyrå.
+- Saknade värden i `country` sätts till "Unknown".
+- Orimliga värden som noll gäster, negativt eller extremt högt värde för `adr` och Undefined i `market_segment` och `distribution_channel` tas bort, totalt 187 rader
 - Skapar `arrival_date` och härleder `booking_date` utifrån `arrival_date` och `lead_time`.
 - Filtrerar bort bokningar gjorda före 2015-07-01. Observationer före detta datum är ofullständiga (endast långa ledtider finns representerade) och innehåller skeva blockbokningar från 2014.
 - Ej återbetalningsbara bokningar (Non Refund) och övriga identiska rader behålls, eftersom de troligen är verkliga bokningar. Identiska rader hamnar alltid i samma delmängd vid uppdelningen.
@@ -138,7 +139,7 @@ Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärd
 - Bokningar gjorda från 2017 används inte. Datan slutar med ankomster i augusti 2017, så bokningar med lång ledtid saknas för den perioden och skulle ge ett för lätt test.
 - Identiska rader har samma bokningsdatum och hamnar därför alltid i samma delmängd.
 
-**Skillnader mellan delmängderna.** Andelen avbokade ökar från 31 % i träningsdata till 40 % i test. Testbokningarna har längre ledtid (median 70 dagar mot 39) och fler ej återbetalningsbara bokningar (14 % mot 12 %). Valideringsperioden har nästan inga ej återbetalningsbara bokningar (2 %), så effekten av `deposit_type` kan inte bedömas på valideringsdata. 
+**Skillnader mellan delmängderna.** Andelen avbokade ökar från 31 % i träningsdata till 40 % i test. Testbokningarna har längre ledtid (median 70 dagar mot 39) och fler ej återbetalningsbara bokningar (14 % mot 12 %). Valideringsperioden har nästan inga ej återbetalningsbara bokningar (2 %), så effekten av `deposit_type` kan inte bedömas på valideringsdata. Båda varianterna redovisas därför även på testdatan, men valet av huvudmodell görs inte utifrån testresultatet.
 
 ### Preprocessing (`src/preprocessing.py`)
 
@@ -158,8 +159,9 @@ Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärd
 
 **Feature som prövas i en kontrollanalys:**
 
-`deposit_type` visar ett extremt mönster för `Non Refund`: 99,36 % avbokas och 92,88 % av raderna är identiska. Samma agenter har 14–51 % avbokningar för sina övriga bokningar, så mönstret beror på depositionstypen. Variabeln är beräknad från betalningar fram till ankomst eller avbokning och var därför inte nödvändigtvis känd vid bokningstillfället.
-Den ingår inte i huvudmodellen. Random Forest körs med den som jämförelse (`include_deposit_type=True`).
+`deposit_type` visar ett extremt mönster för `Non Refund`: 99,36 % avbokas och 92,88 % av raderna är identiska. Samma agenter har 14–51 % avbokningar för sina övriga bokningar, så mönstret beror på depositionstypen, och bokningarna beter sig som gruppblock från resebyråer snarare än som enskilda bokningar. Variabeln är dessutom beräknad från betalningar fram till ankomst eller avbokning och var därför inte nödvändigtvis känd vid bokningstillfället.
+
+Den ingår därför inte i huvudmodellen. Logistisk regression och Random Forest körs med den som jämförelse.
 
 **Följande features används inte i huvudmodellen, eftersom de beskriver utfallet eller kan ha ändrats efter bokningen (se Antonio m.fl., 2019, och EDA:n):**
 
@@ -176,12 +178,13 @@ Den ingår inte i huvudmodellen. Random Forest körs med den som jämförelse (`
 - `required_car_parking_spaces`
 - `deposit_type`
 
-`distribution_channel` används inte heller, eftersom den innehåller nästan samma information som `market_segment`.
+`distribution_channel` används inte heller, eftersom den överlappar mycket med `market_segment`.
 
 **Feature engineering och kodning:**
 - `company` görs om till 0/1 (bokad via företag eller inte).
 - `agent` behandlas som kategori. Agenter med färre än 50 bokningar i träningsdatan, och agenter som inte finns i träningsdatan, slås ihop till en gemensam kategori. Det minskar antalet agentkategorier från 210 till 72, medan cirka 5 % av bokningarna hamnar i den gemensamma kategorin.
 - Numeriska variabler standardiseras och kategoriska one-hot-kodas. Preprocessorn anpassas endast på träningsdata.
+- För jämförelsen med de misstänkta läckagevariablerna behandlas även `country`som har färre än 50 bokningar som en gemensam kategori.
 
 ## 8. Modeller
 
@@ -192,7 +195,11 @@ Syftet är att undersöka om ML-modellerna kan identifiera fler avbokningar än 
 2. Logistic Regression
 3. Random Forest
 
-Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst riskpoäng. För dem beräknas precision (hur stor andel av de flaggade som avbokades) och recall (hur stor andel av alla avbokningar som flaggades). Modeller och inställningar väljs på valideringsdata, och de valda modellerna utvärderas en gång på testdata.
+Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst riskpoäng. För dem beräknas precision (hur stor andel av de flaggade som avbokades) och recall (hur stor andel av alla avbokningar som flaggades). PR-AUC används som sammanfattande mått på hur väl modellen rangordnar bokningarna, oavsett hur många som flaggas. Som referens anges precisionen vid slumpmässig flaggning, som motsvarar andelen avbokade.
+
+Modeller, inställningar och variabler väljs på valideringsdata. De valda modellerna tränas sedan om och utvärderas en gång på testdata. Kontrollvarianterna med `deposit_type` redovisas också på testdata, men valet av huvudmodell ändras inte utifrån testresultatet.
+
+För alla tre modellerna delas resultatet dessutom upp på bokningar med och utan registrerade ändringar (`booking_changes`), som en del av felanalysen.
 
 ### Baseline – Regelbaserad modell `notebooks/03_baseline.ipynb`
 
@@ -206,6 +213,7 @@ Logistisk regression beräknar sannolikheten för avbokning som en viktad summa 
 - Använder samma preprocessing som Random Forest (`src/preprocessing.py`), där numeriska variabler standardiseras och kategoriska one-hot-kodas.
 - Tränas med scikit-learns `LogisticRegression` med standardinställningar och `max_iter=1000`.
 - Bokningarna rangordnas efter den förutsagda sannolikheten, och de 20 % med högst sannolikhet flaggas.
+- Körs även med `deposit_type` som kontrollanalys.
 
 En begränsning är att modellen bara fångar samband där risken ökar eller minskar jämnt med en variabel, och den hittar inte samspel mellan variabler om de inte läggs in manuellt.
 
@@ -220,24 +228,48 @@ Random Forest består av många beslutsträd, där varje träd tränas på ett s
 
 Modellen är svårare att tolka än logistisk regression. Feature importance visar vilka variabler träden använder mest, men måttet räknas på träningsdatan och kan överskatta variabler med många möjliga värden, som `lead_time`. One-hot-kodade variabler som `agent` delas dessutom upp på många kolumner, vilket kan göra att de ser mindre viktiga ut än de är.
 
+### Val av modell
+
+**Tabell 1: Validering (används för att välja modell)**  
+
+Valideringsdata: bokningar gjorda 2016-07-01 – 2016-09-30, 11 643 bokningar, 2 329 flaggade, andel avbokade ≈ 35,3 %
+
+| Modell | Precision@20 | Recall@20 | PR-AUC | Korrekt flaggade av 2 329 |
+|---|---|---|---|---|
+| Slumpmässig flaggning | 35,3 % | 20,0 % | ≈ 0,353 | ≈ 822 |
+| Baseline (lead time) | 54,36 % | 30,83 % | 0,5057 | 1 266 |
+| Logistic Regression | 60,20 % | 34,14 % | 0,5772 | 1 402 |
+| Random Forest | 64,75 % | 36,72 % | 0,5913 | 1 508 |
+
+#### Vald modell
+
+Random Forest Classifier (`n_estimators=100`, `max_depth=15`, `min_samples_leaf=10`, `random_state=42`).
+Feature-set: Exkluderar `deposit_type` (risk för dataläckage, se Preprocessing) och `distribution_channel` (överlappar med `market_segment`).
+
 ## 9. Resultat och slutsatser (`notebooks/02_demonstration.ipynb`)
 
 Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst riskpoäng. Slutresultaten gäller testdatan (bokningar gjorda oktober–december 2016), med modellerna tränade på `train_full`.
 
-> Fylls i när testutvärderingen i `notebooks/02_demonstration.ipynb` är klar.
+### Jämförelse av modellerna med testdata
 
-### Jämförelse av modellerna
+**Tabell 2: Modeller med testdata** 
 
-| Modell | Precision | Recall | PR-AUC |
-|---|---|---|---|
-| Slumpmässig flaggning | | | |
-| Baseline (lead time) | | | |
-| Logistic Regression | | | |
-| Random Forest | | | |
+Testdata: bokningar gjorda 2016-10-01 – 2016-12-31, 14 879 bokningar, andel avbokade ≈ 39,6 %
 
-[PR-kurva med alla modeller]
+| Modell | Precision@20  | Recall@20 | PR-AUC |  Korrekt flaggade av 2 976 | 
+|---|---|---|---|---|
+| Slumpmässig flaggning | 39,6 %  | 20,0 %  | 0,3960 | ≈ 1 178 |
+| Baseline (lead time) | 50,81 % | 25,66 % | 0,5043 | 1 512 |
+| Logistic Regression | 80,68 % | 40,75 % | 0,7547| 2 401 |
+| Random Forest | 81,75 % | 41,29 %  | 0,7750 | 2 433 |
 
-[Kommentar: vilken modell fungerar bäst, och hur mycket bättre än baselinen?]
+Slumpmässig flaggning är beräknad: precisionen motsvarar andelen avbokade i testdatan och recall andelen flaggade bokningar.
+
+![PR-kurvor på testdatan](outputs/figures/test_pr_curves.png)
+
+Båda maskininlärningsmodellerna slår baselinen tydligt. Vid 20 % flaggade bokningar hittar Random Forest 2 433 avbokningar, mot 1 512 för baselinen, alltså cirka 60 % fler. Random Forest är något bättre än logistisk regression, men skillnaden är liten: 32 fler korrekt flaggade bokningar och 0,02 högre PR-AUC.
+
+Resultaten är klart högre än på valideringsdatan, där Random Forest hade en precision på 65 %. PR-kurvan visar att båda modellerna har en precision nära 100 % för den första fjärdedelen av avbokningarna. [Förklaring utifrån analysen av ej återbetalningsbara bokningar: hur stor andel av de flaggade som är Non Refund, och resultaten utan dem.]
 
 ### Felanalys
 
@@ -245,16 +277,18 @@ Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst r
 
 > Siffrorna nedan är preliminära, från valideringsdatan i en tidigare körning. De ersätts med testresultaten för de slutliga modellerna.
 
+**Tabell 3: Modeller med och utan ändringar på valideringsdata**
+
 | Modell | Grupp | Precision@20 | Recall@20 |
 |---|---|---:|---:|
 | Baseline | Utan ändringar | 59,45 % | 29,84 % |
 | Baseline | Med ändringar | 34,05 % | 40,05 % |
-| Logistic Regression | Utan ändringar | 66,00 % | 34,58 % |
-| Logistic Regression | Med ändringar | 39,22 % | 38,04 % |
-| Random Forest | Utan ändringar | 69,41 % | 37,55 % |
-| Random Forest | Med ändringar | 51,24 % | 41,56 % |
+| Logistic Regression | Utan ändringar | 65,87 % | 33,50 % |
+| Logistic Regression | Med ändringar | 35,97 % | 40,05 % |
+| Random Forest | Utan ändringar | 67,60 % | 36,39 % |
+| Random Forest | Med ändringar | 47,59 % | 39,80 % |
 
-Random Forest hade högst precision och recall i båda grupperna. Alla modeller, även baselinen, hade lägre precision för bokningar med registrerade ändringar, medan recall var något högre. Att mönstret gäller alla tre tyder på att det beror på skillnader mellan grupperna, till exempel i avbokningsandel och ledtid, snarare än på en enskild modell. Skillnaderna bör tolkas försiktigt eftersom grupperna har olika storlek.
+Random Forest hade högst precision i båda grupperna. För bokningar med registrerade ändringar var recall ungefär densamma för alla tre modellerna (39,8–40,1 %). Alla modeller, även baselinen, hade lägre precision för bokningar med registrerade ändringar, medan recall var något högre. Att mönstret gäller alla tre tyder på att det beror på skillnader mellan grupperna, till exempel i avbokningsandel och ledtid, snarare än på en enskild modell. Skillnaderna bör tolkas försiktigt eftersom grupperna har olika storlek.
 
 Jämförelsen kan inte avgöra om dataläckage förekommer, eftersom de ursprungliga värdena före ändringarna saknas. `booking_changes` används endast för efterhandsanalys och inte som en feature, eftersom ändringar kan ha registrerats efter bokningstillfället.
 
@@ -262,34 +296,48 @@ Jämförelsen kan inte avgöra om dataläckage förekommer, eftersom de ursprung
 
 **Felaktiga flaggningar och missade avbokningar.** [Förväxlingsmatris och kommentar: vad onödig uppföljning respektive missade avbokningar betyder för hotellet]
 
-### Kontrollanalyser (`notebooks/05_random_forest.ipynb`)
+### Kontrollanalyser (`notebooks/04_logistic_regression_demo.ipynb`, `notebooks/05_random_forest.ipynb`)
 
-Kontrollanalyserna genomfördes med Random Forest på samma tränings- och valideringsdata och med samma hyperparametrar: `n_estimators=100`, `max_depth=15`, `min_samples_leaf=10` och `random_state=42`.
+Kontrollanalyserna genomfördes på valideringsdatan, med modellerna tränade på `train_val`. Varje variant har samma inställningar som respektive huvudmodell, och bara variablerna skiljer sig. Random Forest använder `n_estimators=100`, `max_depth=15`, `min_samples_leaf=10` och `random_state=42`. Alla varianter utvärderades genom att flagga de 20 % av bokningarna som hade högst förutsagd avbokningsrisk.
 
-Modellerna utvärderades genom att flagga de 20 % av bokningarna som hade högst förutsagd avbokningsrisk.
+**Tabell 4: Modeller med och utan `deposit_typ` och Random Forest med misstänkta läckage variabler på valideringsdata**
 
-| Variant | Precision@20 | Recall@20 | PR-AUC |
-|---|---:|---:|---:|
-| Huvudmodell (utan `deposit_type`) | 65,05 % | 36,89 % | 0,5912 |
-| Med `deposit_type` | 64,15 % | 36,38 % | 0,6127 |
-| Med misstänkta läckagevariabler | 64,75 % | 36,72 % | 0,5913 |
+| Modell | Variant | Precision@20 | Recall@20 | PR-AUC | Korrekt flaggade av 2 329 |  
+|---|---|---:|---:|---:|---:|
+| Logistic Regression | Utan `deposit_type` | 60,20 % | 34,14 % | 0,5772 | 1 402 |
+| Logistic Regression | Med `deposit_type` | 62,30 % | 35,33 % | 0,6006 | 1 451|
+| Random Forest | Utan `deposit_type` | 64,75 % | 36,72 % | 0,5913 | 1 508 |
+| Random Forest | Med `deposit_type` | 67,24 % | 38,13 % | 0,6289 | 1 566 |
+| Random Forest | Med misstänkta läckagevariabler | 69,94 % | 39,66 % | 0,6632 | 1 629 |
 
-**Misstänkta läckagevariabler.** Jämförelsemodellen inkluderade även `adults`, `children`, `babies`, `stays_in_weekend_nights`, `stays_in_week_nights`, `meal` och `country`. Variablerna förbättrar inte modellen: precision och recall är något lägre och PR-AUC i princip oförändrad. Resultatet visar inte att variablerna är fria från läckage, men eftersom de inte tillför något finns det inget skäl att ta med dem.
+**`deposit_type`.** Båda modellerna blir något bättre med variabeln. Precisionen ökar med 2,1 procentenheter för logistisk regression och 2,5 för Random Forest, och PR-AUC med 0,023 respektive 0,038. Jämförelsen säger dock lite om variabelns verkliga effekt, eftersom valideringsdatan bara innehåller cirka 2 % ej återbetalningsbara bokningar, som är den grupp där variabeln har störst betydelse. I testdatan är andelen cirka 14 %.
 
-**`deposit_type`.** Vid 20 % flaggade bokningar hittar huvudmodellen 21 fler avbokningar än modellen med `deposit_type`: precisionen är 0,9 procentenheter högre och recall 0,5 procentenheter högre. PR-AUC är däremot 0,02 högre med `deposit_type`, så variabeln förbättrar rangordningen vid andra andelar flaggade bokningar än 20 %. Eftersom variabeln inte förbättrar resultatet vid 20 % och kan bygga på betalningsinformation efter bokningen, används den inte i huvudmodellen. Valideringsperioden innehåller dessutom få ej återbetalningsbara bokningar, vilket begränsar hur säkert effekten kan bedömas.
+Beslutet att inte använda `deposit_type` i huvudmodellerna bygger därför inte på valideringsresultatet, utan på att variabeln är beräknad från betalningar fram till ankomst eller avbokning och inte nödvändigtvis var känd vid bokningstillfället. Ej återbetalningsbara bokningar beter sig dessutom som gruppblock från resebyråer snarare än som enskilda bokningar. Båda varianterna redovisas även på testdatan, men valet av huvudmodell ändras inte utifrån testresultatet.
+
+**Misstänkta läckagevariabler.** Jämförelsemodellen, Random Forest, inkluderade även `adults`, `children`, `babies`, `stays_in_weekend_nights`, `stays_in_week_nights`, `meal` och `country`. Med dem ökar precisionen från 64,75 % till 69,94 % och PR-AUC från 0,591 till 0,663. Förbättringen kan bero på att variablerna innehåller information som registrerats efter bokningstillfället, till exempel uppgifter som uppdateras vid incheckning och därför bara finns för bokningar som inte avbokades. Variablerna används därför inte i huvudmodellen.
 
 ### Slutsats
 
 [Några meningar som svarar på planens kriterium: hittar hotellet klart fler avbokningar med modellen än med regeln om bokningar långt i förväg, när det granskar 20 % av bokningarna? Vilken modell rekommenderas, och vad stöder resultaten inte?]
 
 ## 10. Begränsningar
-Resultaten har flera begränsningar. Datasetet saknar fullständig historik över när bokningsuppgifter ändrades. Därför går det inte alltid att avgöra om en variabel hade sitt aktuella värde redan vid bokningstillfället. Det gäller bland annat `deposit_type`, som kan påverkas av betalningsinformation efter bokningen, samt uppgifter om gäster, vistelselängd, måltider och land.
 
-Kontrollanalysen med misstänkta läckagevariabler visar ingen förbättring, men kan varken bekräfta eller utesluta dataläckage. För att säkert bedöma detta skulle vi behöva tidsstämplar eller historiska versioner av bokningsuppgifterna.
+**Information efter bokningstillfället.** Datasetet saknar historik över när bokningsuppgifter ändrades. Därför går det inte alltid att avgöra om en variabel hade sitt aktuella värde redan vid bokningstillfället. Det gäller bland annat `deposit_type`, som kan påverkas av betalningsinformation efter bokningen, samt uppgifter om gäster, vistelselängd, måltider och land. Ingen av dem används därför i huvudmodellerna. Kontrollanalysen med misstänkta läckagevariabler ger ett bättre resultat, vilket stärker misstanken om läckage, men kan inte bekräfta det.
 
-Felanalysen visar också att modellens precision skiljer sig mellan bokningar med och utan registrerade ändringar. Eftersom grupperna har olika storlek och avbokningsandel bör resultaten inte tolkas som att ändringarna i sig orsakar skillnaden.
+**Gruppblock från resebyråer.** Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppblock snarare än enskilda bokningar. Även utan `deposit_type` kan modellerna känna igen dem, till exempel via `agent`. [Fyll i efter analysen: hur stor del av de flaggade bokningarna i testdatan som är sådana, och hur resultatet ser ut utan dem.]
 
-Slutligen omfattar testperioden endast bokningar gjorda oktober–december 2016. Resultaten behöver därför inte vara representativa för andra perioder eller hotell. Skillnaden i fördelningen av `deposit_type` mellan validerings- och testperioden är ytterligare en osäkerhetsfaktor.
+**Val på en enda valideringsperiod.** Variabler och inställningar valdes på en valideringsperiod på tre månader. Flera av skillnaderna var små och kan bero på slumpen. Valideringsperioden har dessutom bara cirka 2 % ej återbetalningsbara bokningar, mot cirka 14 % i testperioden, så perioderna är inte helt jämförbara.
+
+**Bokningar med och utan ändringar.** Felanalysen visar att precisionen skiljer sig mellan bokningar med och utan registrerade ändringar. Eftersom grupperna har olika storlek och avbokningsandel bör resultaten inte tolkas som att ändringarna i sig orsakar skillnaden.
+
+**Generaliserbarhet.** Testperioden omfattar endast bokningar gjorda oktober–december 2016 vid två hotell i Portugal. Resultaten behöver därför inte vara representativa för andra perioder eller hotell.
+
+### När lösningen inte bör användas
+
+- På andra hotell, eller för senare perioder, utan att först utvärdera modellen på deras data.
+- Om modellen inte hittar klart fler avbokningar än regeln om bokningar långt i förväg vid samma antal flaggade bokningar.
+- För att fatta beslut om enskilda gäster utan mänsklig bedömning. Modellen pekar ut bokningar med hög risk, men cirka var femte flaggad bokning avbokas inte.
+- För att avgöra hur mycket hotellet ska överboka, eftersom det ligger utanför projektets avgränsning.
 
 ## 10b. Avvikelser från projektplanen
 
@@ -303,8 +351,8 @@ Slutligen omfattar testperioden endast bokningar gjorda oktober–december 2016.
 - Lead time-regeln används som rangordning (de 20 % bokningar med längst ledtid flaggas) i stället för en fast gräns på 90 dagar. Då flaggar baseline och modeller exakt lika många bokningar, och ingen gräns behöver väljas utifrån EDA på hela datan.
 
 **Features**
-- `distribution_channel` ingick i planens huvudmodell men togs bort, eftersom den innehåller nästan samma information som `market_segment`.
-- Jämförelserna med `deposit_type` och med misstänkta läckagevariabler görs bara med Random Forest.
+- `distribution_channel` ingick i planens huvudmodell men togs bort, eftersom den överlappar mycket med `market_segment`.
+- Jämförelsen med misstänkta läckagevariabler görs bara med Random Forest.
 
 **Dubbletter**
 - Ingen separat analys utan dubbletter görs. Identiska rader har samma bokningsdatum och hamnar därför alltid i samma delmängd, så risken att samma bokning finns i både träning och test är redan hanterad.
@@ -313,6 +361,15 @@ Slutligen omfattar testperioden endast bokningar gjorda oktober–december 2016.
 - Beslutsträd prövades inte av tidsskäl.
 
 ## 11. Hur generativ AI har använts
+
+Gruppen har använt generativ AI som Claude, ChatGPT och Gemini som stöd i arbetet. Exempel:
+
+- **Förstå och planera:** [till exempel att diskutera dataläckage, tidsuppdelning och val av utvärderingsmått]
+- **Kod:** [till exempel utkast till funktioner i `src/` och tester, som vi sedan har läst, testat och anpassat]
+- **Felsökning:** [till exempel felmeddelanden i Git, Pandas och scikit-learn]
+- **Text:** [till exempel granskning och formulering av README och kommentarer i notebooks]
+
+All kod har lästs, testats och körts av gruppen, och resultaten har kontrollerats mot datan. Förslag som inte stämde med datan eller med våra beslut har ändrats eller valts bort. Gruppen ansvarar för projektets innehåll och kan förklara de lösningar som används.
 
 ## 12. Licens
 
