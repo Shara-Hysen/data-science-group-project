@@ -265,7 +265,7 @@ Testdata: bokningar gjorda 2016-10-01 – 2016-12-31, 14 879 bokningar, andel av
 
 Slumpmässig flaggning är beräknad: precisionen motsvarar andelen avbokade i testdatan och recall andelen flaggade bokningar.
 
-![PR-kurvor på testdatan](outputs/figures/test_pr_curves.png)
+<img src="outputs/figures/test_pr_curves.png" alt="PR-kurvor på testdatan" width="600">
 
 Båda maskininlärningsmodellerna slår baselinen tydligt. Vid 20 % flaggade bokningar hittar Random Forest 2 433 avbokningar, mot 1 512 för baselinen, alltså cirka 60 % fler. Random Forest är något bättre än logistisk regression, men skillnaden är liten: 32 fler korrekt flaggade bokningar och 0,02 högre PR-AUC.
 
@@ -338,6 +338,12 @@ Beslutet att inte använda `deposit_type` i huvudmodellerna bygger därför inte
 - Om modellen inte hittar klart fler avbokningar än regeln om bokningar långt i förväg vid samma antal flaggade bokningar.
 - För att fatta beslut om enskilda gäster utan mänsklig bedömning. Modellen pekar ut bokningar med hög risk, men cirka var femte flaggad bokning avbokas inte.
 - För att avgöra hur mycket hotellet ska överboka, eftersom det ligger utanför projektets avgränsning.
+
+### Fortsatt arbete
+
+- Kontrollanalysen med `deposit_type` gjordes bara på valideringsdatan, där ej återbetalningsbara bokningar är få. Den bör även göras på testdatan.
+- Felanalysen per `booking_changes` gjordes på valideringsdatan och bör upprepas på testdatan med de slutliga modellerna.
+- Modellerna bör utvärderas på flera tidsperioder i stället för en enda valideringsperiod, så att det går att se hur stabila resultaten är.
 
 ## 10b. Avvikelser från projektplanen
 
