@@ -139,7 +139,7 @@ Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärd
 - Bokningar gjorda från 2017 används inte. Datan slutar med ankomster i augusti 2017, så bokningar med lång ledtid saknas för den perioden och skulle ge ett för lätt test.
 - Identiska rader har samma bokningsdatum och hamnar därför alltid i samma delmängd.
 
-**Skillnader mellan delmängderna.** Andelen avbokade ökar från 31 % i träningsdata till 40 % i test. Testbokningarna har längre ledtid (median 70 dagar mot 39) och fler ej återbetalningsbara bokningar (14 % mot 12 %). Valideringsperioden har nästan inga ej återbetalningsbara bokningar (2 %), så effekten av `deposit_type` kan inte bedömas på valideringsdata. Båda varianterna redovisas därför även på testdatan, men valet av huvudmodell görs inte utifrån testresultatet.
+**Skillnader mellan delmängderna.** Andelen avbokade ökar från 31 % i träningsdata till 40 % i test. Testbokningarna har längre ledtid (median 70 dagar mot 39) och fler ej återbetalningsbara bokningar (13,8 % mot 10,9 %). Valideringsperioden har nästan inga ej återbetalningsbara bokningar (1,9 %), så effekten av `deposit_type` kan inte bedömas på valideringsdata. Hur mycket de ej återbetalningsbara bokningarna påverkar testresultatet redovisas i avsnitt 9.
 
 ### Preprocessing (`src/preprocessing.py`)
 
@@ -161,7 +161,7 @@ Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärd
 
 `deposit_type` visar ett extremt mönster för `Non Refund`: 99,36 % avbokas och 92,88 % av raderna är identiska. Samma agenter har 14–51 % avbokningar för sina övriga bokningar, så mönstret beror på depositionstypen, och bokningarna beter sig som gruppblock från resebyråer snarare än som enskilda bokningar. Variabeln är dessutom beräknad från betalningar fram till ankomst eller avbokning och var därför inte nödvändigtvis känd vid bokningstillfället.
 
-Den ingår därför inte i huvudmodellen. Logistisk regression och Random Forest körs med den som jämförelse.
+Den ingår därför inte i huvudmodellen. Logistisk regression och Random Forest körs med den som jämförelse valideringsdatan (`include_deposit_type=True`).
 
 **Följande features används inte i huvudmodellen, eftersom de beskriver utfallet eller kan ha ändrats efter bokningen (se Antonio m.fl., 2019, och EDA:n):**
 
@@ -197,9 +197,9 @@ Syftet är att undersöka om ML-modellerna kan identifiera fler avbokningar än 
 
 Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst riskpoäng. För dem beräknas precision (hur stor andel av de flaggade som avbokades) och recall (hur stor andel av alla avbokningar som flaggades). PR-AUC används som sammanfattande mått på hur väl modellen rangordnar bokningarna, oavsett hur många som flaggas. Som referens anges precisionen vid slumpmässig flaggning, som motsvarar andelen avbokade.
 
-Modeller, inställningar och variabler väljs på valideringsdata. De valda modellerna tränas sedan om och utvärderas en gång på testdata. Kontrollvarianterna med `deposit_type` redovisas också på testdata, men valet av huvudmodell ändras inte utifrån testresultatet.
+Modeller, inställningar och variabler väljs på valideringsdata. De valda modellerna tränas sedan om och utvärderas en gång på testdata.
 
-För alla tre modellerna delas resultatet dessutom upp på bokningar med och utan registrerade ändringar (`booking_changes`), som en del av felanalysen.
+Som felanalys delas resultatet upp på bokningar med och utan registrerade ändringar (`booking_changes`, på valideringsdatan), samt på ej återbetalningsbara bokningar och per hotell (på testdatan).
 
 ### Baseline – Regelbaserad modell `notebooks/03_baseline.ipynb`
 
@@ -269,15 +269,30 @@ Slumpmässig flaggning är beräknad: precisionen motsvarar andelen avbokade i t
 
 Båda maskininlärningsmodellerna slår baselinen tydligt. Vid 20 % flaggade bokningar hittar Random Forest 2 433 avbokningar, mot 1 512 för baselinen, alltså cirka 60 % fler. Random Forest är något bättre än logistisk regression, men skillnaden är liten: 32 fler korrekt flaggade bokningar och 0,02 högre PR-AUC.
 
-Resultaten är klart högre än på valideringsdatan, där Random Forest hade en precision på 65 %. PR-kurvan visar att båda modellerna har en precision nära 100 % för den första fjärdedelen av avbokningarna. [Förklaring utifrån analysen av ej återbetalningsbara bokningar: hur stor andel av de flaggade som är Non Refund, och resultaten utan dem.]
+Resultaten är klart högre än på valideringsdatan, där Random Forest hade en precision på 65 %. PR-kurvan visar att båda modellerna har en precision nära 100 % för den första fjärdedelen av avbokningarna. Skillnaden förklaras till stor del av ej återbetalningsbara bokningar (se nedan).
+
+### Ej återbetalningsbara bokningar
+
+Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppblock från resebyråer (se EDA:n). De är 10,9 % av träningsdatan (`train_full`), 1,9 % av valideringsdatan och 13,8 % av testdatan. Modellerna använder inte `deposit_type, men kan ändå känna igen bokningarna via andra variabler. För att se hur mycket de påverkar resultatet togs de bort i efterhand, och 20 % flaggades på nytt bland de återstående testbokningarna, där andelen avbokade är 29,9 %.`
+
+**Tabell 3: Testdata utan ej återbetalningsbara bokningar**
+
+| Modell |	Andel ej återbetalningsbara bland flaggade (alla bokningar) | Precision@20 utan dem |	Recall@20 utan dem | PR-AUC utan dem |
+|---|---|---|---|---|
+| Slumpmässig flaggning |	13,8 % |	29,9 % |	20,0 % |	≈ 0,299 |
+| Baseline (lead time) | 17,0 % | 41,15 % | 27,52 % | 0,3909 |
+| Logistic Regression | 62,3 % | 50,78 % | 33,97 % |	0,4413 |
+| Random Forest | 63,0 % | 52,15 % | 34,88 % |	0,4713 |
+
+63 % av de bokningar som Random Forest flaggar är ej återbetalningsbara, trots att modellen inte använder `deposit_type`. Utan dem sjunker precisionen från 81,75 % till 52,15 % och PR-AUC från 0,775 till 0,471. Random Forest och logistisk regression slår fortfarande baselinen, och ordningen mellan modellerna är densamma. Det höga testresultatet beror alltså till stor del på gruppbokningar som är lätta att känna igen. För övriga bokningar avbokas ungefär hälften av de flaggade, mot 29,9 % vid slumpmässig flaggning.
+
+SHAP-förklaringen av bokningen med högst risk i testdatan visar samma mönster: den är ej återbetalningsbar, och risken drivs främst av segmentet `Groups`, en specifik agent och lång ledtid (`se notebooks/02_demonstration.ipynb`).
 
 ### Felanalys
 
-**Bokningar med och utan registrerade ändringar.** De 20 % bokningar med högst risk flaggades i hela valideringsdatan, och precision och recall beräknades därefter separat för bokningar med och utan registrerade ändringar (`booking_changes`). 9 790 bokningar saknar registrerade ändringar och 1 853 har minst en.
+**Bokningar med och utan registrerade ändringar.** Felanalysen gjordes på valideringsdatan, med modellerna tränade på train_val. De 20 % bokningar med högst risk flaggades i hela valideringsdatan, och precision och recall beräknades därefter separat för bokningar med och utan registrerade ändringar (`booking_changes`). 9 790 bokningar saknar registrerade ändringar och 1 853 har minst en.
 
-> Siffrorna nedan är preliminära, från valideringsdatan i en tidigare körning. De ersätts med testresultaten för de slutliga modellerna.
-
-**Tabell 3: Modeller med och utan ändringar på valideringsdata**
+**Tabell 4: Modeller med och utan ändringar på valideringsdata**
 
 | Modell | Grupp | Precision@20 | Recall@20 |
 |---|---|---:|---:|
@@ -292,15 +307,31 @@ Random Forest hade högst precision i båda grupperna. För bokningar med regist
 
 Jämförelsen kan inte avgöra om dataläckage förekommer, eftersom de ursprungliga värdena före ändringarna saknas. `booking_changes` används endast för efterhandsanalys och inte som en feature, eftersom ändringar kan ha registrerats efter bokningstillfället.
 
-**Per hotell.** [Tabell och kommentar]
+**Per hotell.** Modellerna flaggar de 20 % bokningar med högst risk i hela testdatan, och resultatet delas därefter upp per hotell.
 
-**Felaktiga flaggningar och missade avbokningar.** [Förväxlingsmatris och kommentar: vad onödig uppföljning respektive missade avbokningar betyder för hotellet]
+**Tabell 5: Random Forest per hotell på testdata**
+
+| Hotell	Bokningar |	Andel avbokade | Andel ej återbetalningsbara | Andel flaggade | Precision@20 |
+|---|---|---|---|---|
+| City Hotel |	10 193 |	46,30 % | 19,15 % | 24,03 % |	85,22 % |
+| Resort Hotel | 4 686 | 25,03 % | 2,30 % | 11,25 % | 65,65 % |
+
+Precisionen är högre för City Hotel, men där är också andelen avbokade högre, och nästan alla ej återbetalningsbara bokningar finns där. Jämfört med andelen avbokade ligger modellen längre över slumpmässig flaggning för Resort Hotel (cirka 2,6 gånger) än för City Hotel (cirka 1,8 gånger). Den högre precisionen för City Hotel beror alltså främst på att avbokningar och gruppbokningar är vanligare där, inte på att modellen är bättre på att skilja ut riskbokningar. Resultatet för ett hotell beror på hur bokningarna där ser ut.
+
+**Felaktiga flaggningar och missade avbokningar.** Förväxlingsmatrisen för Random Forest på testdatan:
+
+| | Avbokad | Inte avbokad |
+|---|---|---|
+| Flaggad |	2 433 | 543 |
+| Inte flaggad |	3 459 | 8 444 |
+
+543 bokningar flaggas i onödan (18 % av de flaggade). För hotellet innebär det onödig uppföljning, till exempel en påminnelse till en gäst som ändå skulle komma. 3 459 avbokningar flaggas inte, och för dem får hotellet ingen förvarning. Eftersom testdatan har 5 892 avbokningar men bara 2 976 bokningar flaggas, kan även en perfekt modell som mest hitta 50,5 % av avbokningarna vid 20 %-gränsen. Random Forest hittar 41,3 %. En stor del av de korrekt flaggade är ej återbetalningsbara gruppbokningar, så för vanliga enskilda bokningar är ungefär hälften av de flaggade falsklarm.
 
 ### Kontrollanalyser (`notebooks/04_logistic_regression_demo.ipynb`, `notebooks/05_random_forest.ipynb`)
 
 Kontrollanalyserna genomfördes på valideringsdatan, med modellerna tränade på `train_val`. Varje variant har samma inställningar som respektive huvudmodell, och bara variablerna skiljer sig. Random Forest använder `n_estimators=100`, `max_depth=15`, `min_samples_leaf=10` och `random_state=42`. Alla varianter utvärderades genom att flagga de 20 % av bokningarna som hade högst förutsagd avbokningsrisk.
 
-**Tabell 4: Modeller med och utan `deposit_typ` och Random Forest med misstänkta läckage variabler på valideringsdata**
+**Tabell 6: Modeller med och utan `deposit_typ` och Random Forest med misstänkta läckage variabler på valideringsdata**
 
 | Modell | Variant | Precision@20 | Recall@20 | PR-AUC | Korrekt flaggade av 2 329 |  
 |---|---|---:|---:|---:|---:|
@@ -310,23 +341,27 @@ Kontrollanalyserna genomfördes på valideringsdatan, med modellerna tränade p�
 | Random Forest | Med `deposit_type` | 67,24 % | 38,13 % | 0,6289 | 1 566 |
 | Random Forest | Med misstänkta läckagevariabler | 69,94 % | 39,66 % | 0,6632 | 1 629 |
 
-**`deposit_type`.** Båda modellerna blir något bättre med variabeln. Precisionen ökar med 2,1 procentenheter för logistisk regression och 2,5 för Random Forest, och PR-AUC med 0,023 respektive 0,038. Jämförelsen säger dock lite om variabelns verkliga effekt, eftersom valideringsdatan bara innehåller cirka 2 % ej återbetalningsbara bokningar, som är den grupp där variabeln har störst betydelse. I testdatan är andelen cirka 14 %.
+**`deposit_type`.** Båda modellerna blir något bättre med variabeln. Precisionen ökar med 2,1 procentenheter för logistisk regression och 2,5 för Random Forest, och PR-AUC med 0,023 respektive 0,038. Jämförelsen säger dock lite om variabelns verkliga effekt, eftersom valideringsdatan bara innehåller cirka 1,9 % ej återbetalningsbara bokningar, som är den grupp där variabeln har störst betydelse. I testdatan är andelen cirka 13,8 %.
 
-Beslutet att inte använda `deposit_type` i huvudmodellerna bygger därför inte på valideringsresultatet, utan på att variabeln är beräknad från betalningar fram till ankomst eller avbokning och inte nödvändigtvis var känd vid bokningstillfället. Ej återbetalningsbara bokningar beter sig dessutom som gruppblock från resebyråer snarare än som enskilda bokningar. Båda varianterna redovisas även på testdatan, men valet av huvudmodell ändras inte utifrån testresultatet.
+Beslutet att inte använda `deposit_type` i huvudmodellerna bygger därför inte på valideringsresultatet, utan på att variabeln är beräknad från betalningar fram till ankomst eller avbokning och inte nödvändigtvis var känd vid bokningstillfället. Ej återbetalningsbara bokningar beter sig dessutom som gruppblock från resebyråer snarare än som enskilda bokningar.
 
 **Misstänkta läckagevariabler.** Jämförelsemodellen, Random Forest, inkluderade även `adults`, `children`, `babies`, `stays_in_weekend_nights`, `stays_in_week_nights`, `meal` och `country`. Med dem ökar precisionen från 64,75 % till 69,94 % och PR-AUC från 0,591 till 0,663. Förbättringen kan bero på att variablerna innehåller information som registrerats efter bokningstillfället, till exempel uppgifter som uppdateras vid incheckning och därför bara finns för bokningar som inte avbokades. Variablerna används därför inte i huvudmodellen.
 
 ### Slutsats
 
-[Några meningar som svarar på planens kriterium: hittar hotellet klart fler avbokningar med modellen än med regeln om bokningar långt i förväg, när det granskar 20 % av bokningarna? Vilken modell rekommenderas, och vad stöder resultaten inte?]
+**Hittar hotellet klart fler avbokningar med modellen än med regeln om bokningar långt i förväg, när det granskar 20 % av bokningarna?** Ja. På testdatan hittar Random Forest 2 433 avbokningar, mot 1 512 för regeln, alltså cirka 60 % fler. Skillnaden består när de ej återbetalningsbara gruppbokningarna tas bort (precision 52,15 % mot 41,15 %), och Random Forest var bäst även på valideringsdatan.
+
+**Rekommendation.** Random Forest rekommenderas som huvudmodell. Skillnaden mot logistisk regression är dock liten, och logistisk regression är lättare att tolka, så den är ett rimligt alternativ.
+
+**Vad resultaten inte stöder.** Att drygt 8 av 10 flaggade bokningar avbokas gäller testperioden som helhet och beror till stor del på gruppbokningar. För vanliga enskilda bokningar avbokas ungefär hälften av de flaggade. Resultaten visar inte heller att modellen fungerar lika bra för andra hotell eller perioder, och de säger inget om hur mycket hotellet bör överboka.
 
 ## 10. Begränsningar
 
 **Information efter bokningstillfället.** Datasetet saknar historik över när bokningsuppgifter ändrades. Därför går det inte alltid att avgöra om en variabel hade sitt aktuella värde redan vid bokningstillfället. Det gäller bland annat `deposit_type`, som kan påverkas av betalningsinformation efter bokningen, samt uppgifter om gäster, vistelselängd, måltider och land. Ingen av dem används därför i huvudmodellerna. Kontrollanalysen med misstänkta läckagevariabler ger ett bättre resultat, vilket stärker misstanken om läckage, men kan inte bekräfta det.
 
-**Gruppblock från resebyråer.** Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppblock snarare än enskilda bokningar. Även utan `deposit_type` kan modellerna känna igen dem, till exempel via `agent`. [Fyll i efter analysen: hur stor del av de flaggade bokningarna i testdatan som är sådana, och hur resultatet ser ut utan dem.]
+**Gruppblock från resebyråer.** Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppblock snarare än enskilda bokningar. Även utan `deposit_type` kan modellerna känna igen dem, till exempel via `agent`, `lead_time` och `market_segment`. I testdatan är 63 % av de bokningar som Random Forest flaggar ej återbetalningsbara, och utan dem sjunker precisionen från 81,75 % till 52,15 %. Resultatet på testdatan överskattar därför hur väl modellen fungerar för enskilda bokningar
 
-**Val på en enda valideringsperiod.** Variabler och inställningar valdes på en valideringsperiod på tre månader. Flera av skillnaderna var små och kan bero på slumpen. Valideringsperioden har dessutom bara cirka 2 % ej återbetalningsbara bokningar, mot cirka 14 % i testperioden, så perioderna är inte helt jämförbara.
+**Val på en enda valideringsperiod.** Variabler och inställningar valdes på en valideringsperiod på tre månader. Flera av skillnaderna var små och kan bero på slumpen. Valideringsperioden har dessutom bara cirka 1,9 % ej återbetalningsbara bokningar, mot cirka 13,8 % i testperioden, så perioderna är inte helt jämförbara.
 
 **Bokningar med och utan ändringar.** Felanalysen visar att precisionen skiljer sig mellan bokningar med och utan registrerade ändringar. Eftersom grupperna har olika storlek och avbokningsandel bör resultaten inte tolkas som att ändringarna i sig orsakar skillnaden.
 
