@@ -19,6 +19,8 @@ saknas i datan (den slutar med ankomster i augusti 2017)
 """
 
 import pandas as pd
+import subprocess
+import sys
 from pathlib import Path
 from src.data_cleaning import validate_data
 from src.config import get_logger
@@ -33,10 +35,21 @@ TEST_SPLIT_DATE, TEST_END = "2016-10-01", "2017-01-01"
 
 def load_cleaned_data(path: Path = CLEANED_PATH) -> pd.DataFrame:
     """Läser in städad data med datumkolumnerna som datum.
-    
+
     Datan valideras mot schemat för städad data. Om filen har skapats med en
     äldre version av städningen stoppas inläsningen.
     """
+
+    # Skapa den städade filen automatiskt om den saknas
+    if not path.exists():
+        
+        logger.info("Städad data saknas. Kör datastädningen automatiskt.")
+
+        subprocess.run(
+            [sys.executable, "-m", "src.data_cleaning"],
+            check=True
+        )
+
     logger.info("Läser in städad data från %s", path)
     df = pd.read_csv(path, parse_dates=["arrival_date", "booking_date"])
 
