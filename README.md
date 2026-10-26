@@ -7,7 +7,7 @@ Syftet är att undersöka om det går att förutsäga vilka bokningar som kommer
 
 ## 2. Tänkt användare eller målgrupp
 
-Intäkts- eller bokningsansvarig på ett hotell, som vill veta hur många bokningar som sannolikt avbokas  för att planera eventuell överbokning eller vilka gäster det kan löna sig att kontakta, till exempel med en påminnelse eller ett erbjudande om att bekräfta. 
+Intäkts- eller bokningsansvarig på ett hotell, som vill veta hur många bokningar som sannolikt avbokas för att planera eventuell överbokning eller vilka gäster det kan löna sig att kontakta, till exempel med en påminnelse eller ett erbjudande om att bekräfta. 
 
 ## 3. Gruppmedlemmar
 
@@ -23,7 +23,7 @@ Intäkts- eller bokningsansvarig på ett hotell, som vill veta hur många boknin
 
 **Användningsvillkor.** CC BY 4.0: datan får användas och delas om källan anges.
 
-**Hämtning.** Datan hämtas automatiskt med kagglehub när `python -m src.data_cleaning` körs. Den hämtades första gången 1 oktober 2026.
+**Hämtning.** Datan hämtas med kagglehub när städningen körs, antingen automatiskt första gången den städade datan läses in eller med `python -m src.data_cleaning`. Den hämtades första gången 1 oktober 2026. 
 
 **Begränsningar.**
 - Bara två hotell i Portugal, ett semesterhotell och ett stadshotell, under 2015–2017, så resultaten kan inte direkt överföras till andra hotell eller perioder.
@@ -43,7 +43,7 @@ Variablerna beskriver:
 ```
 data-science-group-project/
 ├── data/
-│   └── processed/                           # Städad data, skapas med python -m src.data_cleaning (finns inte i Git)
+│   └── processed/                           # Städad data, skapas automatiskt eller med python -m src.data_cleaning (finns inte i Git)
 ├── docs/
 │   └── motesprotokoll/                      # Mötesanteckningar från gruppens avstämningar
 ├── notebooks/
@@ -91,12 +91,12 @@ Logiken ligger i `src/`, och notebookarna anropar funktionerna där. Flödet är
 
 ## 7. Hur projektet körs
 
-1. Hämta och städa data: `python -m src.data_cleaning`  
-   Den städade filen sparas i `data/processed/` och följer inte med i Git.  
-   Kör kommandot igen efter varje ändring i städningen.  
-   Om filen är gammal stoppas inläsningen med ett felmeddelande som säger att städningen ska köras om.  
+1. Data hämtas och städas automatiskt första gången en notebook läser in den städade datan. Den städade filen sparas i `data/processed/` och följer inte med i Git.  
+   Städningen kan också köras manuellt: `python -m src.data_cleaning`. Det behövs efter en ändring i städningen.  
+   Om filen är gammal stoppas inläsningen med ett felmeddelande som säger att städningen ska köras om.
 
-2. Kontrollera uppdelningen: `python -m src.data_split`  
+2. Kontrollera uppdelningen (valfritt): `python -m src.data_split`  
+   Skriver ut antal bokningar och andel avbokade i varje delmängd. Siffrorna ska stämma med tabellen i avsnitt 7b. 
 
 3. Kör notebookarna i ordning:
    - `01_eda.ipynb`: analys av datan och motivering av besluten
@@ -105,7 +105,7 @@ Logiken ligger i `src/`, och notebookarna anropar funktionerna där. Flödet är
 
 4. Kör testerna: `pytest -v`
 
-Notebookarna ska köras från projektets rotmapp, eller med `.venv` vald som kärna i VS Code.
+Välj .venv som kärna i VS Code. Notebookarna byter själva till projektets rotmapp.
 
 ## 7b. Datahantering och metodval
 
@@ -113,7 +113,7 @@ Notebookarna ska köras från projektets rotmapp, eller med `.venv` vald som kä
 
 - Saknade värden i kolumnerna `children`, `company` och `agent` sätts till noll. För `company` och `agent` betyder det att bokningarna inte är gjorda av ett företag respektive av en resebyrå.
 - Saknade värden i `country` sätts till "Unknown".
-- Orimliga värden som noll gäster, negativt eller extremt högt värde för `adr` och Undefined i `market_segment` och `distribution_channel` tas bort, totalt 187 rader
+- Orimliga värden som noll gäster, negativt eller extremt högt värde för `adr` och Undefined i `market_segment` och `distribution_channel` tas bort, totalt 187 rader.
 - Skapar `arrival_date` och härleder `booking_date` utifrån `arrival_date` och `lead_time`.
 - Filtrerar bort bokningar gjorda före 2015-07-01. Observationer före detta datum är ofullständiga (endast långa ledtider finns representerade) och innehåller skeva blockbokningar från 2014.
 - Ej återbetalningsbara bokningar (Non Refund) och övriga identiska rader behålls, eftersom de troligen är verkliga bokningar. Identiska rader hamnar alltid i samma delmängd vid uppdelningen.
@@ -126,7 +126,7 @@ Den städade filen valideras vid inläsning mot samma schema som i städningen (
 **Princip.** Prognosen görs vid bokningstillfället. Vid en prognostidpunkt får modellen bara lära sig av bokningar vars utfall redan var känt. Om en bokning avbokas eller blir en no-show är känt senast vid ankomsten, så träningsdata består av bokningar med ankomst före prognostidpunkten. Utvärderingsdata består av bokningar som görs efter den.
 
 | Delmängd | Innehåll | Antal | Andel avbokade |
-|---|---|---|---|
+|---|---|---:|---:|
 | `train_val` | Ankomst före 2016-07-01 | 40 414 | 30,8 % |
 | `val` | Bokningar gjorda 2016-07-01 – 2016-09-30 | 11 643 | 35,3 % |
 | `train_full` | Ankomst före 2016-10-01 | 55 393 | 32,1 % |
@@ -139,7 +139,7 @@ Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärd
 - Bokningar gjorda från 2017 används inte. Datan slutar med ankomster i augusti 2017, så bokningar med lång ledtid saknas för den perioden och skulle ge ett för lätt test.
 - Identiska rader har samma bokningsdatum och hamnar därför alltid i samma delmängd.
 
-**Skillnader mellan delmängderna.** Andelen avbokade ökar från 31 % i träningsdata till 40 % i test. Testbokningarna har längre ledtid (median 70 dagar mot 39) och fler ej återbetalningsbara bokningar (13,8 % mot 10,9 %). Valideringsperioden har nästan inga ej återbetalningsbara bokningar (1,9 %), så effekten av `deposit_type` kan inte bedömas på valideringsdata. Hur mycket de ej återbetalningsbara bokningarna påverkar testresultatet redovisas i avsnitt 9.
+**Skillnader mellan delmängderna.** Andelen avbokade ökar från 31 % i träningsdata till 40 % i test. Testbokningarna har längre ledtid (median 70 dagar mot 39) och fler ej återbetalningsbara bokningar (13,8 % mot 10,9 % i train_full). Valideringsperioden har nästan inga ej återbetalningsbara bokningar (1,9 %), så effekten av `deposit_type` kan inte bedömas på valideringsdata. Hur mycket de ej återbetalningsbara bokningarna påverkar testresultatet redovisas i avsnitt 9.
 
 ### Preprocessing (`src/preprocessing.py`)
 
@@ -161,7 +161,7 @@ Modeller och hyperparametrar väljs genom att träna på `train_val` och utvärd
 
 `deposit_type` visar ett extremt mönster för `Non Refund`: 99,36 % avbokas och 92,88 % av raderna är identiska. Samma agenter har 14–51 % avbokningar för sina övriga bokningar, så mönstret beror på depositionstypen, och bokningarna beter sig som gruppblock från resebyråer snarare än som enskilda bokningar. Variabeln är dessutom beräknad från betalningar fram till ankomst eller avbokning och var därför inte nödvändigtvis känd vid bokningstillfället.
 
-Den ingår därför inte i huvudmodellen. Logistisk regression och Random Forest körs med den som jämförelse valideringsdatan (`include_deposit_type=True`).
+Den ingår därför inte i huvudmodellen. Logistisk regression och Random Forest körs med den som jämförelse på valideringsdatan (`include_deposit_type=True`).
 
 **Följande features används inte i huvudmodellen, eftersom de beskriver utfallet eller kan ha ändrats efter bokningen (se Antonio m.fl., 2019, och EDA:n):**
 
@@ -184,7 +184,7 @@ Den ingår därför inte i huvudmodellen. Logistisk regression och Random Forest
 - `company` görs om till 0/1 (bokad via företag eller inte).
 - `agent` behandlas som kategori. Agenter med färre än 50 bokningar i träningsdatan, och agenter som inte finns i träningsdatan, slås ihop till en gemensam kategori. Det minskar antalet agentkategorier från 210 till 72, medan cirka 5 % av bokningarna hamnar i den gemensamma kategorin.
 - Numeriska variabler standardiseras och kategoriska one-hot-kodas. Preprocessorn anpassas endast på träningsdata.
-- För jämförelsen med de misstänkta läckagevariablerna behandlas även `country`som har färre än 50 bokningar som en gemensam kategori.
+- För jämförelsen med de misstänkta läckagevariablerna behandlas även `country` som har färre än 50 bokningar som en gemensam kategori.
 
 ## 8. Modeller
 
@@ -235,7 +235,7 @@ Modellen är svårare att tolka än logistisk regression. Feature importance vis
 Valideringsdata: bokningar gjorda 2016-07-01 – 2016-09-30, 11 643 bokningar, 2 329 flaggade, andel avbokade ≈ 35,3 %
 
 | Modell | Precision@20 | Recall@20 | PR-AUC | Korrekt flaggade av 2 329 |
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | Slumpmässig flaggning | 35,3 % | 20,0 % | ≈ 0,353 | ≈ 822 |
 | Baseline (lead time) | 54,36 % | 30,83 % | 0,5057 | 1 266 |
 | Logistic Regression | 60,20 % | 34,14 % | 0,5772 | 1 402 |
@@ -257,7 +257,7 @@ Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst r
 Testdata: bokningar gjorda 2016-10-01 – 2016-12-31, 14 879 bokningar, andel avbokade ≈ 39,6 %
 
 | Modell | Precision@20  | Recall@20 | PR-AUC |  Korrekt flaggade av 2 976 | 
-|---|---|---|---|---|
+|---|---:|---:|---:|---:|
 | Slumpmässig flaggning | 39,6 %  | 20,0 %  | 0,3960 | ≈ 1 178 |
 | Baseline (lead time) | 50,81 % | 25,66 % | 0,5043 | 1 512 |
 | Logistic Regression | 80,68 % | 40,75 % | 0,7547| 2 401 |
@@ -273,24 +273,24 @@ Resultaten är klart högre än på valideringsdatan, där Random Forest hade en
 
 ### Ej återbetalningsbara bokningar
 
-Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppblock från resebyråer (se EDA:n). De är 10,9 % av träningsdatan (`train_full`), 1,9 % av valideringsdatan och 13,8 % av testdatan. Modellerna använder inte `deposit_type, men kan ändå känna igen bokningarna via andra variabler. För att se hur mycket de påverkar resultatet togs de bort i efterhand, och 20 % flaggades på nytt bland de återstående testbokningarna, där andelen avbokade är 29,9 %.`
+Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppblock från resebyråer (se EDA:n). De är 10,9 % av träningsdatan (`train_full`), 1,9 % av valideringsdatan och 13,8 % av testdatan. Modellerna använder inte `deposit_type`, men kan ändå känna igen bokningarna via andra variabler. För att se hur mycket de påverkar resultatet togs de bort i efterhand, och 20 % flaggades på nytt bland de återstående testbokningarna, där andelen avbokade är 29,9 %.
 
 **Tabell 3: Testdata utan ej återbetalningsbara bokningar**
 
-| Modell |	Andel ej återbetalningsbara bland flaggade (alla bokningar) | Precision@20 utan dem |	Recall@20 utan dem | PR-AUC utan dem |
-|---|---|---|---|---|
-| Slumpmässig flaggning |	13,8 % |	29,9 % |	20,0 % |	≈ 0,299 |
+| Modell | Andel ej återbetalningsbara bland flaggade (alla bokningar) | Precision@20 utan dem | Recall@20 utan dem | PR-AUC utan dem |
+|---|---:|---:|---:|---:|
+| Slumpmässig flaggning | 13,8 % | 29,9 % | 20,0 % | ≈ 0,299 |
 | Baseline (lead time) | 17,0 % | 41,15 % | 27,52 % | 0,3909 |
-| Logistic Regression | 62,3 % | 50,78 % | 33,97 % |	0,4413 |
-| Random Forest | 63,0 % | 52,15 % | 34,88 % |	0,4713 |
+| Logistic Regression | 62,3 % | 50,78 % | 33,97 % | 0,4413 |
+| Random Forest | 63,0 % | 52,15 % | 34,88 % | 0,4713 |
 
 63 % av de bokningar som Random Forest flaggar är ej återbetalningsbara, trots att modellen inte använder `deposit_type`. Utan dem sjunker precisionen från 81,75 % till 52,15 % och PR-AUC från 0,775 till 0,471. Random Forest och logistisk regression slår fortfarande baselinen, och ordningen mellan modellerna är densamma. Det höga testresultatet beror alltså till stor del på gruppbokningar som är lätta att känna igen. För övriga bokningar avbokas ungefär hälften av de flaggade, mot 29,9 % vid slumpmässig flaggning.
 
-SHAP-förklaringen av bokningen med högst risk i testdatan visar samma mönster: den är ej återbetalningsbar, och risken drivs främst av segmentet `Groups`, en specifik agent och lång ledtid (`se notebooks/02_demonstration.ipynb`).
+SHAP-förklaringen av bokningen med högst risk i testdatan visar samma mönster: den är ej återbetalningsbar, och risken drivs främst av segmentet `Groups`, en specifik agent och lång ledtid (se `notebooks/02_demonstration.ipynb`).
 
 ### Felanalys
 
-**Bokningar med och utan registrerade ändringar.** Felanalysen gjordes på valideringsdatan, med modellerna tränade på train_val. De 20 % bokningar med högst risk flaggades i hela valideringsdatan, och precision och recall beräknades därefter separat för bokningar med och utan registrerade ändringar (`booking_changes`). 9 790 bokningar saknar registrerade ändringar och 1 853 har minst en.
+**Bokningar med och utan registrerade ändringar.** Felanalysen gjordes på valideringsdatan, med modellerna tränade på `train_val`. De 20 % bokningar med högst risk flaggades i hela valideringsdatan, och precision och recall beräknades därefter separat för bokningar med och utan registrerade ändringar (`booking_changes`). 9 790 bokningar saknar registrerade ändringar och 1 853 har minst en.
 
 **Tabell 4: Modeller med och utan ändringar på valideringsdata**
 
@@ -311,9 +311,9 @@ Jämförelsen kan inte avgöra om dataläckage förekommer, eftersom de ursprung
 
 **Tabell 5: Random Forest per hotell på testdata**
 
-| Hotell	Bokningar |	Andel avbokade | Andel ej återbetalningsbara | Andel flaggade | Precision@20 |
-|---|---|---|---|---|
-| City Hotel |	10 193 |	46,30 % | 19,15 % | 24,03 % |	85,22 % |
+| Hotell | Bokningar | Andel avbokade | Andel ej återbetalningsbara | Andel flaggade | Precision@20 |
+|---|---:|---:|---:|---:|---:|
+| City Hotel | 10 193 | 46,30 % | 19,15 % | 24,03 % | 85,22 % |
 | Resort Hotel | 4 686 | 25,03 % | 2,30 % | 11,25 % | 65,65 % |
 
 Precisionen är högre för City Hotel, men där är också andelen avbokade högre, och nästan alla ej återbetalningsbara bokningar finns där. Jämfört med andelen avbokade ligger modellen längre över slumpmässig flaggning för Resort Hotel (cirka 2,6 gånger) än för City Hotel (cirka 1,8 gånger). Den högre precisionen för City Hotel beror alltså främst på att avbokningar och gruppbokningar är vanligare där, inte på att modellen är bättre på att skilja ut riskbokningar. Resultatet för ett hotell beror på hur bokningarna där ser ut.
@@ -321,9 +321,9 @@ Precisionen är högre för City Hotel, men där är också andelen avbokade hö
 **Felaktiga flaggningar och missade avbokningar.** Förväxlingsmatrisen för Random Forest på testdatan:
 
 | | Avbokad | Inte avbokad |
-|---|---|---|
-| Flaggad |	2 433 | 543 |
-| Inte flaggad |	3 459 | 8 444 |
+|---|---:|---:|
+| Flaggad | 2 433 | 543 |
+| Inte flaggad | 3 459 | 8 444 |
 
 543 bokningar flaggas i onödan (18 % av de flaggade). För hotellet innebär det onödig uppföljning, till exempel en påminnelse till en gäst som ändå skulle komma. 3 459 avbokningar flaggas inte, och för dem får hotellet ingen förvarning. Eftersom testdatan har 5 892 avbokningar men bara 2 976 bokningar flaggas, kan även en perfekt modell som mest hitta 50,5 % av avbokningarna vid 20 %-gränsen. Random Forest hittar 41,3 %. En stor del av de korrekt flaggade är ej återbetalningsbara gruppbokningar, så för vanliga enskilda bokningar är ungefär hälften av de flaggade falsklarm.
 
@@ -331,7 +331,7 @@ Precisionen är högre för City Hotel, men där är också andelen avbokade hö
 
 Kontrollanalyserna genomfördes på valideringsdatan, med modellerna tränade på `train_val`. Varje variant har samma inställningar som respektive huvudmodell, och bara variablerna skiljer sig. Random Forest använder `n_estimators=100`, `max_depth=15`, `min_samples_leaf=10` och `random_state=42`. Alla varianter utvärderades genom att flagga de 20 % av bokningarna som hade högst förutsagd avbokningsrisk.
 
-**Tabell 6: Modeller med och utan `deposit_typ` och Random Forest med misstänkta läckage variabler på valideringsdata**
+**Tabell 6: Modeller med och utan `deposit_type` och Random Forest med misstänkta läckagevariabler på valideringsdata**
 
 | Modell | Variant | Precision@20 | Recall@20 | PR-AUC | Korrekt flaggade av 2 329 |  
 |---|---|---:|---:|---:|---:|
@@ -341,7 +341,7 @@ Kontrollanalyserna genomfördes på valideringsdatan, med modellerna tränade p�
 | Random Forest | Med `deposit_type` | 67,24 % | 38,13 % | 0,6289 | 1 566 |
 | Random Forest | Med misstänkta läckagevariabler | 69,94 % | 39,66 % | 0,6632 | 1 629 |
 
-**`deposit_type`.** Båda modellerna blir något bättre med variabeln. Precisionen ökar med 2,1 procentenheter för logistisk regression och 2,5 för Random Forest, och PR-AUC med 0,023 respektive 0,038. Jämförelsen säger dock lite om variabelns verkliga effekt, eftersom valideringsdatan bara innehåller cirka 1,9 % ej återbetalningsbara bokningar, som är den grupp där variabeln har störst betydelse. I testdatan är andelen cirka 13,8 %.
+**`deposit_type`.** Båda modellerna blir något bättre med variabeln. Precisionen ökar med 2,1 procentenheter för logistisk regression och 2,5 för Random Forest, och PR-AUC med 0,023 respektive 0,038. Jämförelsen säger dock lite om variabelns verkliga effekt, eftersom valideringsdatan bara innehåller 1,9 % ej återbetalningsbara bokningar, som är den grupp där variabeln har störst betydelse. I testdatan är andelen 13,8 %.
 
 Beslutet att inte använda `deposit_type` i huvudmodellerna bygger därför inte på valideringsresultatet, utan på att variabeln är beräknad från betalningar fram till ankomst eller avbokning och inte nödvändigtvis var känd vid bokningstillfället. Ej återbetalningsbara bokningar beter sig dessutom som gruppblock från resebyråer snarare än som enskilda bokningar.
 
@@ -359,9 +359,9 @@ Beslutet att inte använda `deposit_type` i huvudmodellerna bygger därför inte
 
 **Information efter bokningstillfället.** Datasetet saknar historik över när bokningsuppgifter ändrades. Därför går det inte alltid att avgöra om en variabel hade sitt aktuella värde redan vid bokningstillfället. Det gäller bland annat `deposit_type`, som kan påverkas av betalningsinformation efter bokningen, samt uppgifter om gäster, vistelselängd, måltider och land. Ingen av dem används därför i huvudmodellerna. Kontrollanalysen med misstänkta läckagevariabler ger ett bättre resultat, vilket stärker misstanken om läckage, men kan inte bekräfta det.
 
-**Gruppblock från resebyråer.** Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppblock snarare än enskilda bokningar. Även utan `deposit_type` kan modellerna känna igen dem, till exempel via `agent`, `lead_time` och `market_segment`. I testdatan är 63 % av de bokningar som Random Forest flaggar ej återbetalningsbara, och utan dem sjunker precisionen från 81,75 % till 52,15 %. Resultatet på testdatan överskattar därför hur väl modellen fungerar för enskilda bokningar
+**Gruppblock från resebyråer.** Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppblock snarare än enskilda bokningar. Även utan `deposit_type` kan modellerna känna igen dem, till exempel via `agent`, `lead_time` och `market_segment`. I testdatan är 63 % av de bokningar som Random Forest flaggar ej återbetalningsbara, och utan dem sjunker precisionen från 81,75 % till 52,15 %. Resultatet på testdatan överskattar därför hur väl modellen fungerar för enskilda bokningar.
 
-**Val på en enda valideringsperiod.** Variabler och inställningar valdes på en valideringsperiod på tre månader. Flera av skillnaderna var små och kan bero på slumpen. Valideringsperioden har dessutom bara cirka 1,9 % ej återbetalningsbara bokningar, mot cirka 13,8 % i testperioden, så perioderna är inte helt jämförbara.
+**Val på en enda valideringsperiod.** Variabler och inställningar valdes på en valideringsperiod på tre månader. Flera av skillnaderna var små och kan bero på slumpen. Valideringsperioden har dessutom bara 1,9 % ej återbetalningsbara bokningar, mot 13,8 % i testperioden, så perioderna är inte helt jämförbara.
 
 **Bokningar med och utan ändringar.** Felanalysen visar att precisionen skiljer sig mellan bokningar med och utan registrerade ändringar. Eftersom grupperna har olika storlek och avbokningsandel bör resultaten inte tolkas som att ändringarna i sig orsakar skillnaden.
 
@@ -371,7 +371,7 @@ Beslutet att inte använda `deposit_type` i huvudmodellerna bygger därför inte
 
 - På andra hotell, eller för senare perioder, utan att först utvärdera modellen på deras data.
 - Om modellen inte hittar klart fler avbokningar än regeln om bokningar långt i förväg vid samma antal flaggade bokningar.
-- För att fatta beslut om enskilda gäster utan mänsklig bedömning. Modellen pekar ut bokningar med hög risk, men cirka var femte flaggad bokning avbokas inte.
+- För att fatta beslut om enskilda gäster utan mänsklig bedömning. Modellen pekar ut bokningar med hög risk, men för vanliga enskilda bokningar avbokas bara ungefär hälften av de flaggade.
 - För att avgöra hur mycket hotellet ska överboka, eftersom det ligger utanför projektets avgränsning.
 
 ### Fortsatt arbete
@@ -405,10 +405,10 @@ Beslutet att inte använda `deposit_type` i huvudmodellerna bygger därför inte
 
 Gruppen har använt generativ AI som Claude, ChatGPT och Gemini som stöd i arbetet. Exempel:
 
-- **Förstå och planera:** [till exempel att diskutera dataläckage, tidsuppdelning och val av utvärderingsmått]
-- **Kod:** [till exempel utkast till funktioner i `src/` och tester, som vi sedan har läst, testat och anpassat]
-- **Felsökning:** [till exempel felmeddelanden i Git, Pandas och scikit-learn]
-- **Text:** [till exempel granskning och formulering av README och kommentarer i notebooks]
+- **Förstå och planera:** att diskutera dataläckage, tidsuppdelning och val av utvärderingsmått
+- **Kod:** utkast till funktioner i `src/` och tester, som vi sedan har läst, testat och anpassat
+- **Felsökning:** felmeddelanden i Git, Pandas och scikit-learn
+- **Text:** granskning och formulering av README och kommentarer i notebooks
 
 All kod har lästs, testats och körts av gruppen, och resultaten har kontrollerats mot datan. Förslag som inte stämde med datan eller med våra beslut har ändrats eller valts bort. Gruppen ansvarar för projektets innehåll och kan förklara de lösningar som används.
 
@@ -416,4 +416,4 @@ All kod har lästs, testats och körts av gruppen, och resultaten har kontroller
 
 **Data:** Hotel Booking Demand (Antonio, de Almeida & Nunes, 2019) används under CC BY 4.0.
 
-**Kod:** Koden är skriven som ett kursprojekt. [Ange licens, till exempel MIT, eller att ingen licens gäller och att koden inte får återanvändas utan tillstånd.]
+**Kod:** Koden är skriven som ett kursprojekt och licensierad under MIT-licensen, se LICENSE. Licensen gäller endast koden, inte datan.
