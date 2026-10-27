@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import shap
 
 from sklearn.metrics import (
     confusion_matrix,
@@ -327,3 +328,84 @@ def evaluate_top_share(
 
     return results
 
+
+
+def clean_feature_names(raw_names: list[str]) -> list[str]:
+  """Städar bort scikit-learns prefix för renare plots."""
+  return [
+      name.replace("num__", "")
+      .replace("cat__", "")
+      .replace("agent__agent_", "agent_")
+      .replace("agent__", "")
+      for name in raw_names
+  ]
+
+
+def plot_booking_shap_waterfall(
+    model=None,
+    preprocessor=None,
+    booking_features: pd.DataFrame | None = None,
+    shap_explanation: shap.Explanation | None = None,
+    title: str | None = None,
+    max_display: int = 10,
+    show: bool = True,
+) -> plt.Figure | None:
+    """Ritar ett SHAP waterfall-diagram med enhetlig layout och typografi.
+
+    Kan antingen ta emot:
+        1. model, preprocessor och booking_features (beräknar SHAP direkt för 1 bokning)
+        2. shap_explanation (ritar ett befintligt Explanation-objekt)
+    """
+    # 1. Om ett färdigt Explanation-objekt skickas in direkt:
+    if shap_explanation is not None:
+        exp = shap_explanation
+    else:
+        # 2. Annars transformera rådata och beräkna SHAP on-the-fly (för demon)
+        raw_names = preprocessor.get_feature_names_out()
+        clean_names = clean_feature_names(raw_names)
+
+        X_proc = preprocessor.transform(booking_features)
+        X_dense = (
+            X_proc.toarray()
+            if hasattr(X_proc, "toarray")
+            else np.asarray(X_proc, dtype=float)
+        )
+        booking_df = pd.DataFrame(
+            X_dense, columns=clean_names, index=booking_features.index
+        )
+
+        explainer = shap.TreeExplainer(model)
+        shap_vals = explainer(booking_df)
+        exp = shap_vals[0, :, 1] if len(shap_vals.shape) == 3 else shap_vals[0]
+
+    # Rita waterfall-diagrammet utan att visa det direkt
+    shap.plots.waterfall(exp, max_display=max_display, show=False)
+
+    fig = plt.gcf()
+    ax = plt.gca()
+
+    # Ren typografi: svart text, behåll fetstil enbart på pilarnas värden
+    for txt in fig.findobj(match=plt.matplotlib.text.Text):
+        txt.set_color("#000000")
+        text_str = txt.get_text()
+        if text_str.startswith("+") or text_str.startswith("-"):
+            txt.set_fontweight("bold")
+        else:
+            txt.set_fontweight("normal")
+
+    # X-axelns siffror
+    ax.tick_params(axis="x", labelsize=9)
+    for label in ax.get_xticklabels():
+        label.set_fontweight("normal")
+        label.set_color("#000000")
+
+    if title:
+        plt.title(title, fontsize=12, pad=15)
+
+    plt.tight_layout()
+    fig = plt.gcf()
+
+    if show:
+        plt.show()
+    else:
+        return fig
