@@ -48,13 +48,15 @@ data-science-group-project/
 │   └── motesprotokoll/                      # Mötesanteckningar från gruppens avstämningar
 ├── notebooks/
 │   ├── 01_eda.ipynb                         # Explorativ dataanalys och motivering av städning och uppdelning
-│   ├── 02_demonstration.ipynb               # Slutlig utvärdering på testdatan och felanalys
-│   ├── 03_baseline.ipynb                    # Baseline: rangordning efter lead_time
-│   ├── 04_logistic_regression_demo.ipynb    # Logistisk regression på valideringsdatan
-│   └── 05_random_forest.ipynb               # Random Forest, val av inställningar och kontrollanalyser
+│   ├── 02_baseline.ipynb                    # Baseline: rangordning efter lead_time
+│   ├── 03_logistic_regression.ipynb         # Logistisk regression på valideringsdatan
+│   ├── 04_random_forest.ipynb               # Random Forest, val av inställningar och kontrollanalyser
+│   ├── 05_analysis_and_results.ipynb        # Slutlig utvärdering på testdatan och felanalys
+│   └── 06_demonstration.ipynb               # Demonstration av modellens användning
 ├── outputs/
 │   ├── figures/                             # Sparade figurer
 │   └── experiment_results.csv               # Logg över modellkörningar
+├── scripts/                                 # Tillfälliga skript
 ├── src/
 │   ├── config.py                            # Gemensam konfiguration och loggning
 │   ├── data_loader.py                       # Hämtar rådata via kagglehub
@@ -100,8 +102,9 @@ Logiken ligger i `src/`, och notebookarna anropar funktionerna där. Flödet är
 
 3. Kör notebookarna i ordning:
    - `01_eda.ipynb`: analys av datan och motivering av besluten
-   - `03_baseline.ipynb`, `04_logistic_regression_demo.ipynb`, `05_random_forest.ipynb`: modellerna på valideringsdatan
-   - `02_demonstration.ipynb`: slutlig utvärdering på testdatan och felanalys  
+   - `02_baseline.ipynb`, `03_logistic_regression.ipynb`, `04_random_forest.ipynb`: modellerna på valideringsdatan
+   - `05_analysis_and_results.ipynb`: slutlig utvärdering på testdatan och felanalys
+   - `06_demonstration.ipynb`: demo skapad för muntlig presentation  
 
 4. Kör testerna: `pytest -v`
 
@@ -201,12 +204,12 @@ Modeller, inställningar och variabler väljs på valideringsdata. De valda mode
 
 Som felanalys delas resultatet upp på bokningar med och utan registrerade ändringar (`booking_changes`, på valideringsdatan), samt på ej återbetalningsbara bokningar och per hotell (på testdatan).
 
-### Baseline – Regelbaserad modell `notebooks/03_baseline.ipynb`
+### Baseline – Regelbaserad modell `notebooks/02_baseline.ipynb`
 
 Baselinen använder `lead_time`, alltså antalet dagar mellan bokning och planerad ankomst, som riskmått. Vi antar att bokningar med längre `lead_time` har högre risk att avbokas.  
 Baselinen tränas inte och använder inte information om faktiska avbokningar när den väljer vilka bokningar som ska flaggas.
 
-### Logistic Regression `notebooks/04_logistic_regression_demo.ipynb`
+### Logistic Regression `notebooks/03_logistic_regression.ipynb`
 
 Logistisk regression beräknar sannolikheten för avbokning som en viktad summa av variablerna. Modellen är enkel och lätt att tolka: varje variabel får en koefficient som visar om den ökar eller minskar risken för avbokning, vilket gör det möjligt för hotellet att förstå varför en bokning flaggas.
 
@@ -217,12 +220,12 @@ Logistisk regression beräknar sannolikheten för avbokning som en viktad summa 
 
 En begränsning är att modellen bara fångar samband där risken ökar eller minskar jämnt med en variabel, och den hittar inte samspel mellan variabler om de inte läggs in manuellt.
 
-### Random Forest `notebooks/05_random_forest.ipynb`
+### Random Forest `notebooks/04_random_forest.ipynb`
 
 Random Forest består av många beslutsträd, där varje träd tränas på ett slumpmässigt urval av bokningar och variabler. Sannolikheten för avbokning är medelvärdet av trädens förutsägelser. Modellen kan fånga samband som inte är linjära och samspel mellan variabler, till exempel att lång ledtid betyder olika mycket för olika marknadssegment.
 
 - Använder samma preprocessing som logistisk regression.
-- Tränas med `n_estimators=100` och `max_depth=15`. `min_samples_leaf` valdes till 10 genom att jämföra flera värden på valideringsdatan (se `notebooks/05_random_forest.ipynb`).
+- Tränas med `n_estimators=100` och `max_depth=15`. `min_samples_leaf` valdes till 10 genom att jämföra flera värden på valideringsdatan (se `notebooks/04_random_forest.ipynb`).
 - Bokningarna rangordnas efter den förutsagda sannolikheten, och de 20 % med högst sannolikhet flaggas.
 - Körs även med `deposit_type` och med misstänkta läckagevariabler som kontrollanalyser.  
 
@@ -246,7 +249,7 @@ Valideringsdata: bokningar gjorda 2016-07-01 – 2016-09-30, 11 643 bokningar, 2
 Random Forest Classifier (`n_estimators=100`, `max_depth=15`, `min_samples_leaf=10`, `random_state=42`).
 Feature-set: Exkluderar `deposit_type` (risk för dataläckage, se Preprocessing) och `distribution_channel` (överlappar med `market_segment`).
 
-## 9. Resultat och slutsatser (`notebooks/02_demonstration.ipynb`)
+## 9. Resultat och slutsatser (`notebooks/05_analysis_and_results.ipynb`)
 
 Alla modeller jämförs vid samma antal flaggade bokningar: de 20 % med högst riskpoäng. Slutresultaten gäller testdatan (bokningar gjorda oktober–december 2016), med modellerna tränade på `train_full`.
 
@@ -286,7 +289,7 @@ Ej återbetalningsbara bokningar avbokas nästan alltid och beter sig som gruppb
 
 63 % av de bokningar som Random Forest flaggar är ej återbetalningsbara, trots att modellen inte använder `deposit_type`. Utan dem sjunker precisionen från 81,75 % till 52,15 % och PR-AUC från 0,775 till 0,471. Random Forest och logistisk regression slår fortfarande baselinen, och ordningen mellan modellerna är densamma. Det höga testresultatet beror alltså till stor del på gruppbokningar som är lätta att känna igen. För övriga bokningar avbokas ungefär hälften av de flaggade, mot 29,9 % vid slumpmässig flaggning.
 
-SHAP-förklaringen av bokningen med högst risk i testdatan visar samma mönster: den är ej återbetalningsbar, och risken drivs främst av segmentet `Groups`, en specifik agent och lång ledtid (se `notebooks/02_demonstration.ipynb`).
+SHAP-förklaringen av bokningen med högst risk i testdatan visar samma mönster: den är ej återbetalningsbar, och risken drivs främst av segmentet `Groups`, en specifik agent och lång ledtid (se `notebooks/05_analysis_and_results.ipynb`).
 
 ### Felanalys
 
@@ -327,7 +330,7 @@ Precisionen är högre för City Hotel, men där är också andelen avbokade hö
 
 543 bokningar flaggas i onödan (18 % av de flaggade). För hotellet innebär det onödig uppföljning, till exempel en påminnelse till en gäst som ändå skulle komma. 3 459 avbokningar flaggas inte, och för dem får hotellet ingen förvarning. Eftersom testdatan har 5 892 avbokningar men bara 2 976 bokningar flaggas, kan även en perfekt modell som mest hitta 50,5 % av avbokningarna vid 20 %-gränsen. Random Forest hittar 41,3 %. En stor del av de korrekt flaggade är ej återbetalningsbara gruppbokningar, så för vanliga enskilda bokningar är ungefär hälften av de flaggade falsklarm.
 
-### Kontrollanalyser (`notebooks/04_logistic_regression_demo.ipynb`, `notebooks/05_random_forest.ipynb`)
+### Kontrollanalyser (`notebooks/03_logistic_regression.ipynb`, `notebooks/04_random_forest.ipynb`)
 
 Kontrollanalyserna genomfördes på valideringsdatan, med modellerna tränade på `train_val`. Varje variant har samma inställningar som respektive huvudmodell, och bara variablerna skiljer sig. Random Forest använder `n_estimators=100`, `max_depth=15`, `min_samples_leaf=10` och `random_state=42`. Alla varianter utvärderades genom att flagga de 20 % av bokningarna som hade högst förutsagd avbokningsrisk.
 
