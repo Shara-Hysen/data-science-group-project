@@ -419,4 +419,4 @@ All kod har lästs, testats och körts av gruppen, och resultaten har kontroller
 
 **Data:** Hotel Booking Demand (Antonio, de Almeida & Nunes, 2019) används under CC BY 4.0.
 
-**Kod:** Koden är skriven som ett kursprojekt och licensierad under MIT-licensen, se LICENSE. Licensen gäller endast koden, inte datan.
+**Kod:** Koden är skriven som ett kursprojekt.
